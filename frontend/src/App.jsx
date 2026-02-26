@@ -87,7 +87,8 @@ function App() {
 
       } else {
 
-        alert('Upload failed: ' + data.error)
+        const details = data?.details ? `\nDetails: ${data.details}` : ''
+        alert('Upload failed: ' + (data?.error || 'Unknown error') + details)
 
       }
 

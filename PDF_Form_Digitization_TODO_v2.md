@@ -6,10 +6,10 @@
 
 ## Admin Authentication
 
--   [ ] Implement admin registration
--   [ ] Implement login with JWT
--   [ ] Hash passwords (bcrypt)
--   [ ] Create role-based middleware
+-   [x] Implement admin registration
+-   [x] Implement login with JWT
+-   [x] Hash passwords (bcrypt)
+-   [x] Create role-based middleware
 
 Acceptance Criteria: - Admin receives JWT on login - Unauthorized users
 blocked - Passwords stored securely
@@ -18,11 +18,11 @@ blocked - Passwords stored securely
 
 # PHASE 2 -- Database Updates
 
--   [ ] Add role column to Users
--   [ ] Add admin_id to Forms
--   [ ] Add public_slug to Forms
+-   [x] Add role column to Users
+-   [x] Add admin_id to Forms
+-   [x] Add public_slug to Forms
 -   [ ] Add Generated_PDFs table
--   [ ] Add ENUM status (draft, active, inactive)
+-   [x] Add ENUM status (draft, active, inactive)
 
 Acceptance Criteria: - Foreign keys enforced - Slugs unique - Migration
 successful

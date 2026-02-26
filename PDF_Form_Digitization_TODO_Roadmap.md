@@ -8,11 +8,11 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 1. Project Setup (Frontend + Backend)
 
--   [ ] Initialize React project
--   [ ] Initialize Flask/Django backend
--   [ ] Setup PostgreSQL database
--   [ ] Configure environment variables
--   [ ] Setup Docker for local development
+-   [x] Initialize React project
+-   [x] Initialize Flask/Django backend
+-   [x] Setup PostgreSQL database
+-   [x] Configure environment variables
+-   [x] Setup Docker for local development
 
 ### Acceptance Criteria
 
@@ -26,10 +26,10 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 2. Database Schema Implementation
 
--   [ ] Create Users table
--   [ ] Create Forms table
--   [ ] Create Submissions table
--   [ ] Add migrations support
+-   [x] Create Users table
+-   [x] Create Forms table
+-   [x] Create Submissions table
+-   [x] Add migrations support
 
 ### Acceptance Criteria
 
@@ -42,10 +42,10 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 3. PDF Upload API
 
--   [ ] Create `POST /api/forms/upload`
--   [ ] Validate file type (PDF only)
--   [ ] Upload file to cloud storage
--   [ ] Store file path in Forms table
+-   [x] Create `POST /api/forms/upload`
+-   [x] Validate file type (PDF only)
+-   [x] Upload file to cloud storage
+-   [x] Store file path in Forms table
 
 ### Acceptance Criteria
 
@@ -58,9 +58,9 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 4. Basic PDF Preview (Frontend)
 
--   [ ] Integrate pdf.js
--   [ ] Render uploaded PDF preview
--   [ ] Display loading state
+-   [x] Integrate pdf.js
+-   [x] Render uploaded PDF preview
+-   [x] Display loading state
 
 ### Acceptance Criteria
 
@@ -74,9 +74,9 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 5. Digital PDF Text Extraction
 
--   [ ] Extract text using PyPDF2
--   [ ] Store extracted text temporarily
--   [ ] Log extraction output
+-   [x] Extract text using PyPDF2
+-   [x] Store extracted text temporarily
+-   [x] Log extraction output
 
 ### Acceptance Criteria
 
@@ -87,9 +87,9 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 6. Rule-Based Field Detection
 
--   [ ] Detect labels ending with ":"
--   [ ] Generate JSON schema
--   [ ] Store schema in DB
+-   [x] Detect labels ending with ":"
+-   [x] Generate JSON schema
+-   [x] Store schema in DB
 
 ### Acceptance Criteria
 
@@ -100,9 +100,9 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 7. Dynamic Form Rendering
 
--   [ ] Fetch schema
--   [ ] Render dynamic fields
--   [ ] Implement validation
+-   [x] Fetch schema
+-   [x] Render dynamic fields
+-   [x] Implement validation
 
 ### Acceptance Criteria
 
@@ -114,8 +114,8 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 8. Basic Form Submission API
 
--   [ ] Store filled_data in Submissions table
--   [ ] Record submission timestamp
+-   [x] Store filled_data in Submissions table
+-   [x] Record submission timestamp
 
 ### Acceptance Criteria
 

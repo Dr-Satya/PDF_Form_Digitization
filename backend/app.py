@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g as flask_g
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -9,11 +9,11 @@ import uuid
 from pypdf import PdfReader
 import json
 import traceback
+import secrets
 import re
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
 import bcrypt
 from functools import wraps
-import secrets
 
 load_dotenv()
 
@@ -22,16 +22,34 @@ CORS(app)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret-key-that-is-long-enough-for-jwt-validation-at-least-32-bytes')
+app.config['JWT_SECRET_KEY'] = 'super-secret-key-that-is-long-enough-for-jwt-validation-at-least-32-bytes-long-12345678901234567890123456789012'
 jwt = JWTManager(app)
+
+@jwt.unauthorized_loader
+def _jwt_missing_token(reason):
+    return jsonify({"error": "Missing or invalid Authorization header", "details": reason}), 401
+
+@jwt.invalid_token_loader
+def _jwt_invalid_token(reason):
+    return jsonify({"error": "Invalid token", "details": reason}), 422
+
+@jwt.expired_token_loader
+def _jwt_expired_token(jwt_header, jwt_payload):
+    return jsonify({"error": "Token has expired"}), 401
 
 def admin_required(f):
     @wraps(f)
     @jwt_required()
     def decorated_function(*args, **kwargs):
-        claims = get_jwt_identity()
-        if claims['role'] != 'admin':
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        if claims.get('role') != 'admin':
             return jsonify({"error": "Admin access required"}), 403
+        flask_g.user = {
+            'id': user_id,
+            'email': claims.get('email'),
+            'role': claims.get('role'),
+        }
         return f(*args, **kwargs)
     return decorated_function
 
@@ -73,7 +91,13 @@ def login_admin():
     conn.close()
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
         return jsonify({"error": "Invalid credentials"}), 401
-    access_token = create_access_token(identity={'id': str(user['id']), 'email': user['email'], 'role': user['role']})
+    access_token = create_access_token(
+        identity=str(user['id']),
+        additional_claims={
+            'email': user['email'],
+            'role': user['role'],
+        },
+    )
     return jsonify({"access_token": access_token}), 200
 
 @app.route('/api/health', methods=['GET'])
@@ -86,6 +110,7 @@ def health_check():
         return jsonify({"status": "ERROR", "message": str(e)}), 500
 
 @app.route('/api/forms/upload', methods=['POST'])
+@admin_required
 def upload_pdf():
     try:
         if 'file' not in request.files:
@@ -171,25 +196,16 @@ def get_form(form_id):
         return jsonify({"error": "Form not found"}), 404
     return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
 
-@app.route('/api/public/forms/<slug>', methods=['GET'])
-def get_public_form(slug):
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT id, form_schema FROM forms WHERE public_slug = %s AND status = 'active'", (slug,))
-    form = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not form:
-        return jsonify({"error": "Form not found"}), 404
-    return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
-
 @app.route('/api/forms/<uuid:form_id>/submit', methods=['POST'])
 def submit_form(form_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     filled_data = data.get('filled_data', [])
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO submissions (form_id, filled_data) VALUES (%s, %s)", (str(form_id), json.dumps(filled_data)))
+    cursor.execute(
+        "INSERT INTO submissions (form_id, filled_data) VALUES (%s, %s)",
+        (str(form_id), json.dumps(filled_data)),
+    )
     conn.commit()
     cursor.close()
     conn.close()
