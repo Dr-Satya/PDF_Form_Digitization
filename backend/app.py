@@ -127,7 +127,10 @@ def upload_pdf():
         # Insert into DB
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO forms (original_pdf_path) VALUES (%s) RETURNING id", (filepath,))
+        cursor.execute(
+            "INSERT INTO forms (admin_id, original_pdf_path, status) VALUES (%s, %s, 'draft') RETURNING id",
+            (flask_g.user['id'], filepath),
+        )
         form_id = cursor.fetchone()[0]
 
         # Extract text
@@ -178,11 +181,82 @@ def upload_pdf():
 
         cursor.close()
         conn.close()
-        return jsonify({"form_id": str(form_id), "message": "PDF uploaded and processed successfully"}), 201
+        return jsonify({"form_id": str(form_id), "status": "draft", "message": "PDF uploaded and processed successfully"}), 201
     except Exception as e:
         print("Error in upload:", str(e))
         print(traceback.format_exc())
         return jsonify({"error": "Internal server error: " + str(e)}), 500
+
+
+@app.route('/api/forms/<uuid:form_id>/activate', methods=['POST'])
+@admin_required
+def activate_form(form_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("SELECT id, admin_id, status, public_slug FROM forms WHERE id = %s", (str(form_id),))
+    form = cursor.fetchone()
+    if not form:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Form not found"}), 404
+
+    if str(form['admin_id']) != str(flask_g.user['id']):
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Forbidden"}), 403
+
+    if form['status'] == 'active' and form.get('public_slug'):
+        cursor.close()
+        conn.close()
+        return jsonify({"public_slug": form['public_slug'], "status": "active"}), 200
+
+    # Generate unique slug
+    slug = None
+    for _ in range(10):
+        candidate = secrets.token_urlsafe(16)
+        cursor.execute("SELECT 1 FROM forms WHERE public_slug = %s", (candidate,))
+        if not cursor.fetchone():
+            slug = candidate
+            break
+    if not slug:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Failed to generate unique slug"}), 500
+
+    cursor.execute(
+        "UPDATE forms SET public_slug = %s, status = 'active' WHERE id = %s",
+        (slug, str(form_id)),
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"public_slug": slug, "status": "active"}), 200
+
+
+@app.route('/api/forms/<uuid:form_id>/deactivate', methods=['POST'])
+@admin_required
+def deactivate_form(form_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("SELECT id, admin_id FROM forms WHERE id = %s", (str(form_id),))
+    form = cursor.fetchone()
+    if not form:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Form not found"}), 404
+
+    if str(form['admin_id']) != str(flask_g.user['id']):
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Forbidden"}), 403
+
+    cursor.execute("UPDATE forms SET status = 'inactive' WHERE id = %s", (str(form_id),))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"status": "inactive"}), 200
 
 @app.route('/api/forms/<uuid:form_id>', methods=['GET'])
 def get_form(form_id):
@@ -195,6 +269,52 @@ def get_form(form_id):
     if not form:
         return jsonify({"error": "Form not found"}), 404
     return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
+
+
+@app.route('/api/public/forms/<slug>', methods=['GET'])
+def get_public_form(slug):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id, form_schema, status FROM forms WHERE public_slug = %s", (slug,))
+    form = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not form:
+        return jsonify({"error": "Form not found"}), 404
+
+    if form['status'] != 'active':
+        return jsonify({"error": "Form has expired"}), 403
+
+    return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
+
+
+@app.route('/api/forms/<uuid:form_id>/submissions', methods=['GET'])
+@admin_required
+def list_submissions(form_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("SELECT id, admin_id FROM forms WHERE id = %s", (str(form_id),))
+    form = cursor.fetchone()
+    if not form:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Form not found"}), 404
+
+    if str(form['admin_id']) != str(flask_g.user['id']):
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Forbidden"}), 403
+
+    cursor.execute(
+        "SELECT id, filled_data, submitted_at FROM submissions WHERE form_id = %s ORDER BY submitted_at DESC",
+        (str(form_id),),
+    )
+    submissions = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify({"submissions": submissions}), 200
 
 @app.route('/api/forms/<uuid:form_id>/submit', methods=['POST'])
 def submit_form(form_id):

@@ -33,9 +33,9 @@ successful
 
 ## Upload & Draft Creation
 
--   [ ] Admin-only upload endpoint
--   [ ] Save form as DRAFT
--   [ ] Associate form with admin_id
+-   [x] Admin-only upload endpoint
+-   [x] Save form as DRAFT
+-   [x] Associate form with admin_id
 
 Acceptance Criteria: - Only logged-in admin can upload - Draft not
 publicly accessible
@@ -44,9 +44,9 @@ publicly accessible
 
 ## Generate & Activate Public URL
 
--   [ ] Generate secure slug (16+ chars)
--   [ ] Save slug in DB
--   [ ] Activate form
+-   [x] Generate secure slug (16+ chars)
+-   [x] Save slug in DB
+-   [x] Activate form
 
 Acceptance Criteria: - Unique slug generated - Public URL accessible
 only if ACTIVE

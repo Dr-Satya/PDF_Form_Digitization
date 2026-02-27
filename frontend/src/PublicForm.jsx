@@ -27,11 +27,11 @@ const PublicForm = () => {
       });
   }, [slug]);
 
-  const handleSubmit = (data) => {
+  const handleSubmit = (filledData) => {
     fetch(`http://localhost:8000/api/forms/${formId}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ filled_data: filledData })
     })
       .then(res => res.json())
       .then(() => alert('Form submitted successfully!'))

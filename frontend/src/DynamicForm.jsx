@@ -22,7 +22,7 @@ const DynamicForm = ({ schema, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ filled_data: filledData });
+    onSubmit(filledData);
   };
 
   let fieldIndex = 0;
@@ -35,19 +35,24 @@ const DynamicForm = ({ schema, onSubmit }) => {
           <div key={sectionIndex} className="form-section">
             <h3>{section.title}</h3>
             {section.fields.map((field) => (
-              <div key={fieldIndex} className="form-field">
-                <label htmlFor={`field-${fieldIndex}`}>{field.label}:</label>
-                <input
-                  id={`field-${fieldIndex}`}
-                  type={field.type}
-                  value={filledData[fieldIndex]?.value || ''}
-                  onChange={(e) => handleChange(fieldIndex, e.target.value)}
-                  required={field.required}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                  className="form-input"
-                />
-                {fieldIndex++}
-              </div>
+              (() => {
+                const idx = fieldIndex;
+                fieldIndex += 1;
+                return (
+                  <div key={idx} className="form-field">
+                    <label htmlFor={`field-${idx}`}>{field.label}:</label>
+                    <input
+                      id={`field-${idx}`}
+                      type={field.type}
+                      value={filledData[idx]?.value || ''}
+                      onChange={(e) => handleChange(idx, e.target.value)}
+                      required={field.required}
+                      placeholder={`Enter ${field.label.toLowerCase()}`}
+                      className="form-input"
+                    />
+                  </div>
+                );
+              })()
             ))}
           </div>
         ))}

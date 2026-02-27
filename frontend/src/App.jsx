@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import PDFViewer from './PDFViewer'
 import DynamicForm from './DynamicForm'
+import PublicForm from './PublicForm'
 
-function App() {
+function AppContent() {
   const [count, setCount] = useState(0)
   const [formId, setFormId] = useState(null)
   const [schema, setSchema] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
+  const [shareUrl, setShareUrl] = useState(null)
+  const [submissions, setSubmissions] = useState([])
 
   useEffect(() => {
 
@@ -25,9 +29,93 @@ function App() {
 
   }, [token])
 
+  useEffect(() => {
+
+    if (!formId || !token) return
+
+    const handleFocus = () => {
+
+      refreshSubmissions(formId)
+
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+
+      window.removeEventListener('focus', handleFocus)
+
+    }
+
+  }, [formId, token])
+
   const handleLogin = (newToken) => {
 
     setToken(newToken)
+
+  }
+
+  const handleActivate = async () => {
+
+    if (!formId) return
+
+    const response = await fetch(`http://localhost:8000/api/forms/${formId}/activate`, {
+
+      method: 'POST',
+
+      headers: {
+
+        Authorization: `Bearer ${token}`
+
+      }
+
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+
+      setShareUrl(`${window.location.origin}/public/${data.public_slug}`)
+
+    } else {
+
+      const details = data?.details ? `\nDetails: ${data.details}` : ''
+      alert('Activate failed: ' + (data?.error || 'Unknown error') + details)
+
+    }
+
+  }
+
+  const handleDeactivate = async () => {
+
+    if (!formId) return
+
+    const response = await fetch(`http://localhost:8000/api/forms/${formId}/deactivate`, {
+
+      method: 'POST',
+
+      headers: {
+
+        Authorization: `Bearer ${token}`
+
+      }
+
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+
+      setShareUrl(null)
+
+      alert('Form deactivated')
+
+    } else {
+
+      const details = data?.details ? `\nDetails: ${data.details}` : ''
+      alert('Deactivate failed: ' + (data?.error || 'Unknown error') + details)
+
+    }
 
   }
 
@@ -38,6 +126,34 @@ function App() {
     setFormId(null)
 
     setSchema(null)
+
+    setShareUrl(null)
+
+    setSubmissions([])
+
+  }
+
+  const refreshSubmissions = async (targetFormId = formId) => {
+
+    if (!targetFormId) return
+
+    const response = await fetch(`http://localhost:8000/api/forms/${targetFormId}/submissions`, {
+
+      headers: {
+
+        Authorization: `Bearer ${token}`
+
+      }
+
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+
+      setSubmissions(data.submissions || [])
+
+    }
 
   }
 
@@ -71,6 +187,10 @@ function App() {
 
         setFormId(data.form_id)
 
+        setShareUrl(null)
+
+        setSubmissions([])
+
         const schemaResponse = await fetch(`http://localhost:8000/api/forms/${data.form_id}`, {
 
           headers: {
@@ -84,6 +204,8 @@ function App() {
         const schemaData = await schemaResponse.json()
 
         setSchema(schemaData.schema)
+
+        await refreshSubmissions(data.form_id)
 
       } else {
 
@@ -113,6 +235,8 @@ function App() {
     })
 
     alert('Form submitted successfully!')
+
+    await refreshSubmissions(formId)
 
   }
 
@@ -208,7 +332,57 @@ function App() {
 
       </form>
 
+      {formId && (
+
+        <div>
+
+          <button onClick={handleActivate}>Activate & Generate Share URL</button>
+
+          <button onClick={handleDeactivate} style={{ marginLeft: '8px' }}>Deactivate</button>
+
+        </div>
+
+      )}
+
+      {shareUrl && <p>Share this URL: <a href={shareUrl} target="_blank">{shareUrl}</a></p>}
+
       {schema && <DynamicForm schema={schema} onSubmit={handleSubmitForm} />}
+
+      {formId && (
+
+        <div>
+
+          <h2>Submissions</h2>
+
+          <button onClick={() => refreshSubmissions()}>Refresh Submissions</button>
+
+          {submissions.length === 0 ? (
+
+            <p>No submissions yet.</p>
+
+          ) : (
+
+            <ul>
+
+              {submissions.map((sub) => (
+
+                <li key={sub.id}>
+
+                  {new Date(sub.submitted_at).toLocaleString()} 
+
+                  <button style={{ marginLeft: '8px' }} onClick={() => alert(JSON.stringify(sub.filled_data, null, 2))}>View</button>
+
+                </li>
+
+              ))}
+
+            </ul>
+
+          )}
+
+        </div>
+
+      )}
 
       <div className="card">
 
@@ -236,6 +410,17 @@ function App() {
 
   )
 
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<AppContent />} />
+        <Route path="/public/:slug" element={<PublicForm />} />
+      </Routes>
+    </Router>
+  )
 }
 
 export default App
