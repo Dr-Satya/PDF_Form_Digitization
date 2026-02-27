@@ -153,8 +153,8 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 11. Shareable Form URL
 
--   [ ] Generate unique link
--   [ ] Optional expiration support
+-   [x] Generate unique link
+-   [x] Optional expiration support
 
 ### Acceptance Criteria
 
@@ -165,8 +165,8 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 12. Submission History UI
 
--   [ ] List submissions
--   [ ] View submission details
+-   [x] List submissions
+-   [x] View submission details
 -   [ ] Download PDFs
 
 ### Acceptance Criteria

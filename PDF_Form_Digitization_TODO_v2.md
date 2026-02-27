@@ -53,13 +53,20 @@ only if ACTIVE
 
 ------------------------------------------------------------------------
 
+## Admin Persistence (Re-login)
+
+-   [x] List forms owned by admin
+-   [x] Admin can reload a previously created form and view its submissions
+
+------------------------------------------------------------------------
+
 # PHASE 4 -- Public Form Submission
 
 ## Public Form Rendering
 
--   [ ] Fetch form by slug
--   [ ] Validate ACTIVE status
--   [ ] Render dynamic schema
+-   [x] Fetch form by slug
+-   [x] Validate ACTIVE status
+-   [x] Render dynamic schema
 
 Acceptance Criteria: - Inactive forms return 404 - Active form renders
 successfully
@@ -68,8 +75,8 @@ successfully
 
 ## Store Public Submission
 
--   [ ] Save filled_data in Submissions
--   [ ] Associate submission with form_id
+-   [x] Save filled_data in Submissions
+-   [x] Associate submission with form_id
 -   [ ] No auto PDF generation
 
 Acceptance Criteria: - Submission stored - No PDF created automatically
@@ -80,8 +87,8 @@ Acceptance Criteria: - Submission stored - No PDF created automatically
 
 ## View Submissions
 
--   [ ] List submissions per form
--   [ ] Ensure admin ownership validation
+-   [x] List submissions per form
+-   [x] Ensure admin ownership validation
 
 Acceptance Criteria: - Admin sees only own submissions - 403 on
 unauthorized access

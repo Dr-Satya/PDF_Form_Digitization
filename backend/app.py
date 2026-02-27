@@ -258,16 +258,34 @@ def deactivate_form(form_id):
     conn.close()
     return jsonify({"status": "inactive"}), 200
 
+
+@app.route('/api/forms', methods=['GET'])
+@admin_required
+def list_forms():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        "SELECT id, status, public_slug, created_at FROM forms WHERE admin_id = %s ORDER BY created_at DESC",
+        (str(flask_g.user['id']),),
+    )
+    forms = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify({"forms": forms}), 200
+
 @app.route('/api/forms/<uuid:form_id>', methods=['GET'])
+@admin_required
 def get_form(form_id):
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT id, form_schema FROM forms WHERE id = %s", (str(form_id),))
+    cursor.execute("SELECT id, admin_id, form_schema FROM forms WHERE id = %s", (str(form_id),))
     form = cursor.fetchone()
     cursor.close()
     conn.close()
     if not form:
         return jsonify({"error": "Form not found"}), 404
+    if str(form['admin_id']) != str(flask_g.user['id']):
+        return jsonify({"error": "Forbidden"}), 403
     return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
 
 

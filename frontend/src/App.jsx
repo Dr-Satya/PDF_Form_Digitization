@@ -14,6 +14,7 @@ function AppContent() {
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [shareUrl, setShareUrl] = useState(null)
   const [submissions, setSubmissions] = useState([])
+  const [forms, setForms] = useState([])
 
   useEffect(() => {
 
@@ -55,6 +56,82 @@ function AppContent() {
 
   }
 
+  const loadForms = async () => {
+
+    if (!token) return
+
+    const response = await fetch('http://localhost:8000/api/forms', {
+
+      headers: {
+
+        Authorization: `Bearer ${token}`
+
+      }
+
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+
+      setForms(data.forms || [])
+
+    }
+
+  }
+
+  const loadFormDetails = async (targetFormId, selectedForm = null) => {
+
+    if (!targetFormId) return
+
+    const schemaResponse = await fetch(`http://localhost:8000/api/forms/${targetFormId}`, {
+
+      headers: {
+
+        Authorization: `Bearer ${token}`
+
+      }
+
+    })
+
+    const schemaData = await schemaResponse.json()
+
+    if (schemaResponse.ok) {
+
+      setSchema(schemaData.schema)
+
+    }
+
+    await refreshSubmissions(targetFormId)
+
+    const selected = selectedForm || (forms || []).find((f) => String(f.id) === String(targetFormId))
+
+    if (selected && selected.status === 'active' && selected.public_slug) {
+
+      setShareUrl(`${window.location.origin}/public/${selected.public_slug}`)
+
+    } else {
+
+      setShareUrl(null)
+
+    }
+
+  }
+
+  useEffect(() => {
+
+    if (!token) {
+
+      setForms([])
+
+      return
+
+    }
+
+    loadForms()
+
+  }, [token])
+
   const handleActivate = async () => {
 
     if (!formId) return
@@ -76,6 +153,8 @@ function AppContent() {
     if (response.ok) {
 
       setShareUrl(`${window.location.origin}/public/${data.public_slug}`)
+
+      await loadForms()
 
     } else {
 
@@ -108,6 +187,8 @@ function AppContent() {
 
       setShareUrl(null)
 
+      await loadForms()
+
       alert('Form deactivated')
 
     } else {
@@ -130,6 +211,8 @@ function AppContent() {
     setShareUrl(null)
 
     setSubmissions([])
+
+    setForms([])
 
   }
 
@@ -207,6 +290,8 @@ function AppContent() {
 
         await refreshSubmissions(data.form_id)
 
+        await loadForms()
+
       } else {
 
         const details = data?.details ? `\nDetails: ${data.details}` : ''
@@ -274,6 +359,16 @@ function AppContent() {
 
               setToken(data.access_token)
 
+              setFormId(null)
+
+              setSchema(null)
+
+              setShareUrl(null)
+
+              setSubmissions([])
+
+              setForms([])
+
             } else {
 
               alert(data.error)
@@ -291,7 +386,6 @@ function AppContent() {
           <button type="submit">Login</button>
 
         </form>
-
       </div>
 
     )
@@ -331,6 +425,60 @@ function AppContent() {
         <button type="submit">Upload PDF</button>
 
       </form>
+
+      <div>
+
+        <h2>Your Forms</h2>
+
+        {forms.length === 0 ? (
+
+          <p>No forms yet.</p>
+
+        ) : (
+
+          <select
+
+            value={formId || ''}
+
+            onChange={async (e) => {
+
+              const selectedId = e.target.value
+
+              if (!selectedId) return
+
+              const selectedForm = (forms || []).find((f) => String(f.id) === String(selectedId))
+
+              setFormId(selectedId)
+
+              setSchema(null)
+
+              setShareUrl(null)
+
+              setSubmissions([])
+
+              await loadFormDetails(selectedId, selectedForm)
+
+            }}
+
+          >
+
+            <option value="">Select a form</option>
+
+            {forms.map((f) => (
+
+              <option key={f.id} value={f.id}>
+
+                {String(f.id).slice(0, 8)}... ({f.status})
+
+              </option>
+
+            ))}
+
+          </select>
+
+        )}
+
+      </div>
 
       {formId && (
 
