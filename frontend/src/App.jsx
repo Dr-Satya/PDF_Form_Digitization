@@ -15,6 +15,7 @@ function AppContent() {
   const [shareUrl, setShareUrl] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [forms, setForms] = useState([])
+  const [newFormName, setNewFormName] = useState('')
 
   useEffect(() => {
 
@@ -29,6 +30,74 @@ function AppContent() {
     }
 
   }, [token])
+
+  const handleSchemaFieldChange = (sectionIndex, fieldIndex, changes) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+      const section = { ...sections[sectionIndex] }
+      const fields = Array.isArray(section.fields) ? [...section.fields] : []
+      const field = { ...fields[fieldIndex], ...changes }
+      fields[fieldIndex] = field
+      section.fields = fields
+      sections[sectionIndex] = section
+      next.sections = sections
+      return next
+
+    })
+
+  }
+
+  const handleSchemaNameChange = (value) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+      return { ...prev, name: value }
+
+    })
+
+  }
+
+  const handleSaveSchema = async () => {
+
+    if (!formId || !schema) return
+
+    const response = await fetch(`http://localhost:8000/api/forms/${formId}/schema`, {
+
+      method: 'PUT',
+
+      headers: {
+
+        'Content-Type': 'application/json',
+
+        Authorization: `Bearer ${token}`
+
+      },
+
+      body: JSON.stringify({ schema })
+
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+
+      alert('Form saved')
+
+      await loadForms()
+
+    } else {
+
+      alert('Save failed: ' + (data?.error || 'Unknown error'))
+
+    }
+
+  }
 
   useEffect(() => {
 
@@ -248,6 +317,12 @@ function AppContent() {
 
     formData.append('file', e.target.elements.file.files[0])
 
+    if (newFormName.trim()) {
+
+      formData.append('form_name', newFormName.trim())
+
+    }
+
     try {
 
       const response = await fetch('http://localhost:8000/api/forms/upload', {
@@ -287,6 +362,8 @@ function AppContent() {
         const schemaData = await schemaResponse.json()
 
         setSchema(schemaData.schema)
+
+        setNewFormName('')
 
         await refreshSubmissions(data.form_id)
 
@@ -420,6 +497,20 @@ function AppContent() {
 
       <form onSubmit={handleUpload}>
 
+        <input
+
+          type="text"
+
+          placeholder="Form name (optional)"
+
+          value={newFormName}
+
+          onChange={(e) => setNewFormName(e.target.value)}
+
+          style={{ marginRight: '8px' }}
+
+        />
+
         <input type="file" name="file" accept=".pdf" required />
 
         <button type="submit">Upload PDF</button>
@@ -468,7 +559,7 @@ function AppContent() {
 
               <option key={f.id} value={f.id}>
 
-                {String(f.id).slice(0, 8)}... ({f.status})
+                {(f.name && String(f.name).trim()) ? String(f.name) : `${String(f.id).slice(0, 8)}...`} ({f.status})
 
               </option>
 
@@ -493,6 +584,82 @@ function AppContent() {
       )}
 
       {shareUrl && <p>Share this URL: <a href={shareUrl} target="_blank">{shareUrl}</a></p>}
+
+      {schema && (
+
+        <div>
+
+          <h2>Edit Form</h2>
+
+          <div style={{ marginBottom: '12px' }}>
+
+            <label style={{ marginRight: '8px' }}>Form Name:</label>
+
+            <input
+
+              type="text"
+
+              value={schema.name || ''}
+
+              onChange={(e) => handleSchemaNameChange(e.target.value)}
+
+            />
+
+          </div>
+
+          {schema.sections?.map((section, sectionIndex) => (
+
+            <div key={sectionIndex} style={{ border: '1px solid #ddd', padding: '12px', marginBottom: '12px' }}>
+
+              <h3>{section.title}</h3>
+
+              {section.fields?.map((field, fieldIndex) => (
+
+                <div key={fieldIndex} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+
+                  <input
+
+                    type="text"
+
+                    value={field.label || ''}
+
+                    onChange={(e) => handleSchemaFieldChange(sectionIndex, fieldIndex, { label: e.target.value })}
+
+                    style={{ flex: 1 }}
+
+                  />
+
+                  <label>
+
+                    <input
+
+                      type="checkbox"
+
+                      checked={!!field.required}
+
+                      onChange={(e) => handleSchemaFieldChange(sectionIndex, fieldIndex, { required: e.target.checked })}
+
+                      style={{ marginRight: '6px' }}
+
+                    />
+
+                    Required
+
+                  </label>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          ))}
+
+          <button onClick={handleSaveSchema}>Save Form</button>
+
+        </div>
+
+      )}
 
       {schema && <DynamicForm schema={schema} onSubmit={handleSubmitForm} />}
 

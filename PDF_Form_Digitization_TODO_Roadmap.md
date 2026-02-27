@@ -90,6 +90,8 @@ Derived from the Software Requirements Specification.
 -   [x] Detect labels ending with ":"
 -   [x] Generate JSON schema
 -   [x] Store schema in DB
+-   [x] Allow admin to edit schema (labels + required) and save
+-   [x] Allow admin to name forms
 
 ### Acceptance Criteria
 

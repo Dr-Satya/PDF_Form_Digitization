@@ -113,6 +113,7 @@ def health_check():
 @admin_required
 def upload_pdf():
     try:
+        form_name = request.form.get('form_name')
         if 'file' not in request.files:
             return jsonify({"error": "No file part"}), 400
         file = request.files['file']
@@ -174,6 +175,8 @@ def upload_pdf():
             sections.append({"title": section_title, "fields": section_fields})
 
         schema = {"sections": sections}
+        if form_name:
+            schema['name'] = form_name
 
         # Update form with schema
         cursor.execute("UPDATE forms SET form_schema = %s WHERE id = %s", (json.dumps(schema), form_id))
@@ -265,13 +268,42 @@ def list_forms():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
-        "SELECT id, status, public_slug, created_at FROM forms WHERE admin_id = %s ORDER BY created_at DESC",
+        "SELECT id, status, public_slug, created_at, form_schema->>'name' AS name FROM forms WHERE admin_id = %s ORDER BY created_at DESC",
         (str(flask_g.user['id']),),
     )
     forms = cursor.fetchall()
     cursor.close()
     conn.close()
     return jsonify({"forms": forms}), 200
+
+
+@app.route('/api/forms/<uuid:form_id>/schema', methods=['PUT'])
+@admin_required
+def update_form_schema(form_id):
+    data = request.get_json() or {}
+    schema = data.get('schema')
+    if not isinstance(schema, dict):
+        return jsonify({"error": "Invalid schema"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id, admin_id FROM forms WHERE id = %s", (str(form_id),))
+    form = cursor.fetchone()
+    if not form:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Form not found"}), 404
+
+    if str(form['admin_id']) != str(flask_g.user['id']):
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Forbidden"}), 403
+
+    cursor.execute("UPDATE forms SET form_schema = %s WHERE id = %s", (json.dumps(schema), str(form_id)))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "Schema updated"}), 200
 
 @app.route('/api/forms/<uuid:form_id>', methods=['GET'])
 @admin_required

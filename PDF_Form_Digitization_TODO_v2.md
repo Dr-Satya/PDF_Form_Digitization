@@ -121,7 +121,8 @@ Proper 403 responses returned
 
 -   [ ] Trigger OCR only during admin upload
 -   [ ] Integrate ML-assisted field detection
--   [ ] Allow admin schema editing
+-   [x] Allow admin schema editing
+-   [x] Allow admin to name forms
 
 Acceptance Criteria: - Public users never trigger OCR/ML - Field
 detection accuracy improved - Admin can adjust schema before activation

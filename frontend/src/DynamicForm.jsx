@@ -29,7 +29,7 @@ const DynamicForm = ({ schema, onSubmit }) => {
 
   return (
     <div className="form-container">
-      <h2>Generated Form</h2>
+      <h2>{schema?.name ? schema.name : 'Generated Form'}</h2>
       <form onSubmit={handleSubmit} className="dynamic-form">
         {schema.sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="form-section">
