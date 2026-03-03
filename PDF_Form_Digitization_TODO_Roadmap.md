@@ -178,7 +178,86 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-# 🔵 PHASE 4 --- OCR Support (Advanced)
+# � PHASE 3.5 --- Enhanced Form Editor & PDF Generation
+
+## ✅ 12.1. Admin Instructions System
+
+-   [x] Add custom instructions text field
+-   [x] Display instructions on web forms
+-   [x] Include instructions in generated PDFs
+-   [x] Text wrapping for long instructions
+
+### Acceptance Criteria
+
+-   Admin can add custom guidance for users
+-   Instructions appear prominently on forms
+-   Instructions included in PDF exports
+
+------------------------------------------------------------------------
+
+## ✅ 12.2. Dynamic Section Management
+
+-   [x] Edit section titles inline
+-   [x] Add new sections dynamically
+-   [x] Delete sections with confirmation
+-   [x] Auto-number new sections
+
+### Acceptance Criteria
+
+-   Section titles are editable
+-   Sections can be added/removed
+-   Form structure remains valid after changes
+
+------------------------------------------------------------------------
+
+## ✅ 12.3. Field Management System
+
+-   [x] Edit field labels inline
+-   [x] Add new fields to sections
+-   [x] Delete individual fields
+-   [x] Toggle required/optional status
+-   [x] Auto-number new fields
+
+### Acceptance Criteria
+
+-   Field labels are editable
+-   Fields can be added/removed dynamically
+-   Required status can be toggled
+-   Form validation works with dynamic changes
+
+------------------------------------------------------------------------
+
+## ✅ 12.4. Enhanced PDF Generation
+
+-   [x] Include admin instructions in PDF
+-   [x] Proper text formatting and wrapping
+-   [x] Multi-page support for long content
+-   [x] Improved PDF layout and styling
+
+### Acceptance Criteria
+
+-   Generated PDFs contain admin instructions
+-   Long text wraps properly
+-   PDF formatting is clean and readable
+
+------------------------------------------------------------------------
+
+## ✅ 12.5. User Interface Improvements
+
+-   [x] Color-coded action buttons
+-   [x] Intuitive form editor layout
+-   [x] Responsive design elements
+-   [x] Clear visual feedback
+
+### Acceptance Criteria
+
+-   Actions are visually distinct
+-   Interface is easy to navigate
+-   Works on different screen sizes
+
+------------------------------------------------------------------------
+
+# �🔵 PHASE 4 --- OCR Support (Advanced)
 
 ## ✅ 13. Convert PDF Pages to Images
 

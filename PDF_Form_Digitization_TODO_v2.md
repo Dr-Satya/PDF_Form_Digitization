@@ -128,4 +128,57 @@ detection accuracy improved - Admin can adjust schema before activation
 
 ------------------------------------------------------------------------
 
+# PHASE 7.5 -- Enhanced Form Editor Features
+
+## Admin Instructions System
+-   [x] Add custom instructions text field
+-   [x] Display instructions on web forms
+-   [x] Include instructions in generated PDFs
+-   [x] Text wrapping for long instructions
+
+Acceptance Criteria: - Admin can add custom guidance - Instructions appear prominently - Instructions included in PDF exports
+
+------------------------------------------------------------------------
+
+## Dynamic Section Management
+-   [x] Edit section titles inline
+-   [x] Add new sections dynamically
+-   [x] Delete sections with confirmation
+-   [x] Auto-number new sections
+
+Acceptance Criteria: - Section titles are editable - Sections can be added/removed - Form structure remains valid
+
+------------------------------------------------------------------------
+
+## Field Management System
+-   [x] Edit field labels inline
+-   [x] Add new fields to sections
+-   [x] Delete individual fields
+-   [x] Toggle required/optional status
+-   [x] Auto-number new fields
+
+Acceptance Criteria: - Field labels are editable - Fields can be added/removed - Required status can be toggled
+
+------------------------------------------------------------------------
+
+## Enhanced PDF Generation
+-   [x] Include admin instructions in PDF
+-   [x] Proper text formatting and wrapping
+-   [x] Multi-page support for long content
+-   [x] Improved PDF layout and styling
+
+Acceptance Criteria: - Generated PDFs contain admin instructions - Long text wraps properly - PDF formatting is clean
+
+------------------------------------------------------------------------
+
+## User Interface Improvements
+-   [x] Color-coded action buttons
+-   [x] Intuitive form editor layout
+-   [x] Responsive design elements
+-   [x] Clear visual feedback
+
+Acceptance Criteria: - Actions are visually distinct - Interface is easy to navigate - Works on different screen sizes
+
+------------------------------------------------------------------------
+
 End of TODO Roadmap v2.
