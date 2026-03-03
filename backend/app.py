@@ -112,7 +112,7 @@ def health_check():
     except Exception as e:
         return jsonify({"status": "ERROR", "message": str(e)}), 500
 
-def generate_filled_pdf(original_pdf_path, filled_data, schema):
+def generate_filled_pdf(original_pdf_path, filled_data, schema, submitter_email=None, submitted_at=None):
     """
     Generate a filled PDF by overlaying form data onto the original PDF.
     For now, creates a simple PDF with the form data.
@@ -122,20 +122,26 @@ def generate_filled_pdf(original_pdf_path, filled_data, schema):
         packet = io.BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)
         
+        from datetime import datetime
+
         # Add title
         form_name = schema.get('name', 'Generated Form')
         can.setFont("Helvetica-Bold", 16)
         can.drawString(50, 750, f"Form: {form_name}")
-        
-        # Add submission date
-        from datetime import datetime
+
+        submitted_dt = submitted_at if isinstance(submitted_at, datetime) else datetime.now()
         can.setFont("Helvetica", 10)
-        can.drawString(50, 730, f"Submitted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        if submitter_email:
+            can.drawString(50, 735, f"Submitter Email: {submitter_email}")
+            can.drawString(50, 720, f"Submitted: {submitted_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            y_position = 695
+        else:
+            can.drawString(50, 730, f"Submitted: {submitted_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            y_position = 700
         
         # Add admin instructions if present
         admin_text = schema.get('adminText')
         if admin_text:
-            y_position = 710
             can.setFont("Helvetica-Oblique", 9)
             can.drawString(50, y_position, "Instructions:")
             y_position -= 12
@@ -168,18 +174,20 @@ def generate_filled_pdf(original_pdf_path, filled_data, schema):
                 y_position -= 12
             
             y_position -= 10  # Extra spacing after instructions
-        else:
-            y_position = 700
-        
+
         # Add form data
-        can.setFont("Helvetica", 12)
+        line_height = 16
+        label_value_gap = 6
+        left_x = 50
+        value_max_width = 520
         
         field_index = 0
         for section in schema.get('sections', []):
-            # Add section title
-            can.setFont("Helvetica-Bold", 12)
-            can.drawString(50, y_position, section.get('title', 'Section'))
-            y_position -= 20
+            section_title = (section.get('title') or '').strip()
+            if section_title:
+                can.setFont("Helvetica-Bold", 12)
+                can.drawString(left_x, y_position, section_title)
+                y_position -= line_height
             
             # Add fields
             can.setFont("Helvetica", 10)
@@ -191,40 +199,53 @@ def generate_filled_pdf(original_pdf_path, filled_data, schema):
                     field_value = ''
                 label = field.get('label', f'Field {field_index + 1}')
                 required = field.get('required', False)
-                
-                # Format field line - always include the field with its value
-                field_text = f"{label}: {field_value}"
-                if required and not field_value:
-                    field_text += " (REQUIRED)"
-                
-                can.drawString(70, y_position, field_text)
-                y_position -= 15
+
+                # Draw label (bold) + value (normal) with consistent spacing
+                can.setFont("Helvetica-Bold", 10)
+                label_text = f"{label}:"
+                can.drawString(left_x, y_position, label_text)
+                label_width = can.stringWidth(label_text, "Helvetica-Bold", 10)
+
+                can.setFont("Helvetica", 10)
+                value_text = field_value if field_value is not None else ''
+                if required and not value_text:
+                    value_text = f"{value_text} (REQUIRED)".strip()
+
+                # Simple wrapping for long values
+                start_x = left_x + label_width + label_value_gap
+                max_chars = max(10, int((value_max_width - (start_x - left_x)) / 6))
+                value_lines = [value_text] if len(str(value_text)) <= max_chars else []
+                if not value_lines:
+                    import textwrap
+                    value_lines = textwrap.wrap(str(value_text), width=max_chars) or ['']
+
+                for i, line in enumerate(value_lines):
+                    if i == 0:
+                        can.drawString(start_x, y_position, line)
+                    else:
+                        y_position -= line_height
+                        can.drawString(start_x, y_position, line)
+
+                y_position -= line_height
                 field_index += 1
                 
                 # Page break if we're running out of space
                 if y_position < 100:
                     can.showPage()
                     y_position = 750
-                    can.setFont("Helvetica", 12)
+                    can.setFont("Helvetica", 10)
             
-            y_position -= 10
+            if section_title:
+                y_position -= 6
         
         can.save()
         
         # Move to the beginning of the StringIO buffer
         packet.seek(0)
         
-        # Create a new PDF with the generated content
+        # Create a new PDF with the generated content (do NOT include original PDF pages)
         new_pdf = PdfReader(packet)
         output = PdfWriter()
-        
-        # If original PDF exists, merge it
-        if os.path.exists(original_pdf_path):
-            original_pdf = PdfReader(original_pdf_path)
-            for page in original_pdf.pages:
-                output.add_page(page)
-        
-        # Add our generated page
         for page in new_pdf.pages:
             output.add_page(page)
         
@@ -560,8 +581,17 @@ def submit_form(form_id):
             conn.close()
             return jsonify({"error": "A submission with this email address already exists for this form"}), 409
         
+        from datetime import datetime
+        submitted_at = datetime.now()
+
         # Generate PDF
-        pdf_content = generate_filled_pdf(form['original_pdf_path'], filled_data, form['form_schema'])
+        pdf_content = generate_filled_pdf(
+            form['original_pdf_path'],
+            filled_data,
+            form['form_schema'],
+            submitter_email=submitter_email,
+            submitted_at=submitted_at,
+        )
         
         # Save PDF file
         pdf_filename = f"submission_{uuid.uuid4()}.pdf"
@@ -572,8 +602,8 @@ def submit_form(form_id):
         
         # Store submission with email and PDF path
         cursor.execute(
-            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path, submitter_email) VALUES (%s, %s, %s, %s)",
-            (str(form_id), json.dumps(filled_data), pdf_path, submitter_email),
+            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path, submitter_email, submitted_at) VALUES (%s, %s, %s, %s, %s)",
+            (str(form_id), json.dumps(filled_data), pdf_path, submitter_email, submitted_at),
         )
         conn.commit()
         cursor.close()
