@@ -81,6 +81,10 @@ def register_admin():
         cursor.close()
         conn.close()
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    return login_admin()
+
 @app.route('/api/admin/login', methods=['POST'])
 def login_admin():
     data = request.get_json()
@@ -429,6 +433,48 @@ def list_forms():
     return jsonify({"forms": forms}), 200
 
 
+@app.route('/api/forms', methods=['POST'])
+@admin_required
+def create_form():
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    schema = data.get('schema')
+
+    if schema is not None and not isinstance(schema, dict):
+        return jsonify({"error": "Invalid schema"}), 400
+
+    if not schema:
+        schema = {
+            "name": name or "Untitled Form",
+            "adminText": "",
+            "sections": [],
+        }
+    else:
+        if name:
+            schema['name'] = name
+        schema.setdefault('adminText', "")
+        schema.setdefault('sections', [])
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute(
+            "INSERT INTO forms (admin_id, status, form_schema) VALUES (%s, %s, %s) RETURNING id",
+            (str(flask_g.user['id']), 'inactive', json.dumps(schema)),
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        form_id = row['id'] if isinstance(row, dict) else row[0]
+        cursor.close()
+        conn.close()
+        return jsonify({"form_id": str(form_id), "schema": schema, "status": "inactive"}), 201
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Create form failed", "details": str(e)}), 500
+
+
 @app.route('/api/forms/<uuid:form_id>/schema', methods=['PUT'])
 @admin_required
 def update_form_schema(form_id):
@@ -462,7 +508,10 @@ def update_form_schema(form_id):
 def get_form(form_id):
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT id, admin_id, form_schema FROM forms WHERE id = %s", (str(form_id),))
+    cursor.execute(
+        "SELECT id, admin_id, form_schema, public_slug, status FROM forms WHERE id = %s",
+        (str(form_id),),
+    )
     form = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -470,7 +519,18 @@ def get_form(form_id):
         return jsonify({"error": "Form not found"}), 404
     if str(form['admin_id']) != str(flask_g.user['id']):
         return jsonify({"error": "Forbidden"}), 403
-    return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
+    schema = form.get('form_schema')
+    if isinstance(schema, str):
+        try:
+            schema = json.loads(schema)
+        except Exception:
+            schema = None
+    return jsonify({
+        "form_id": str(form['id']),
+        "schema": schema,
+        "public_slug": form.get('public_slug'),
+        "status": form.get('status'),
+    }), 200
 
 
 @app.route('/api/forms/<uuid:form_id>', methods=['DELETE'])
@@ -547,7 +607,13 @@ def get_public_form(slug):
     if form['status'] != 'active':
         return jsonify({"error": "Form has expired"}), 403
 
-    return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
+    schema = form.get('form_schema')
+    if isinstance(schema, str):
+        try:
+            schema = json.loads(schema)
+        except Exception:
+            schema = None
+    return jsonify({"form_id": str(form['id']), "schema": schema}), 200
 
 
 @app.route('/api/forms/<uuid:form_id>/submissions', methods=['GET'])

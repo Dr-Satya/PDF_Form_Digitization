@@ -40,58 +40,35 @@ const DynamicForm = ({ schema, onSubmit }) => {
   let fieldIndex = 0;
 
   return (
-    <div className="form-container">
-      <h2>{schema?.name ? schema.name : 'Generated Form'}</h2>
-      {schema?.adminText && (
-        <div className="admin-instructions" style={{ 
-          backgroundColor: '#f8f9fa', 
-          border: '1px solid #dee2e6', 
-          borderRadius: '4px', 
-          padding: '12px', 
-          marginBottom: '20px',
-          fontSize: '14px',
-          color: '#495057'
-        }}>
-          <strong>Instructions:</strong> {schema.adminText}
+    <div className="public-form">
+      <div className="card">
+        <div className="card-header">
+          <h2>{schema?.name ? schema.name : 'Generated Form'}</h2>
+          {schema?.adminText ? <p>{schema.adminText}</p> : null}
         </div>
-      )}
-      <form onSubmit={handleSubmit} className="dynamic-form">
-        {/* Mandatory Email Field */}
-        <div className="form-field" style={{ 
-          border: '2px solid #007bff', 
-          borderRadius: '4px', 
-          padding: '12px', 
-          marginBottom: '20px',
-          backgroundColor: '#f8f9fa'
-        }}>
-          <label htmlFor="submitter-email" style={{ fontWeight: 'bold', color: '#007bff' }}>
-            Email Address <span style={{ color: 'red' }}>*</span>:
+        <form onSubmit={handleSubmit} className="form-grid">
+          <label className="form-group">
+            <span>Email Address *</span>
+            <input
+              id="submitter-email"
+              type="email"
+              value={email}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              required
+              placeholder="Enter your email address"
+            />
           </label>
-          <input
-            id="submitter-email"
-            type="email"
-            value={email}
-            onChange={(e) => handleEmailChange(e.target.value)}
-            required
-            placeholder="Enter your email address"
-            className="form-input"
-            style={{ width: '100%', padding: '8px' }}
-          />
-          <small style={{ color: '#6c757d', fontSize: '12px' }}>
-            This field is required for submission tracking
-          </small>
-        </div>
         
-        {schema.sections.map((section, sectionIndex) => (
-          <div key={sectionIndex} className="form-section">
-            <h3>{section.title}</h3>
-            {section.fields.map((field) => (
+          {schema.sections.map((section, sectionIndex) => (
+            <div key={sectionIndex} className="section-card">
+              <h3 style={{ margin: 0 }}>{section.title}</h3>
+              {section.fields.map((field) => (
               (() => {
                 const idx = fieldIndex;
                 fieldIndex += 1;
                 return (
-                  <div key={idx} className="form-field">
-                    <label htmlFor={`field-${idx}`}>{field.label}:</label>
+                  <label key={idx} className="form-group" htmlFor={`field-${idx}`}>
+                    <span>{field.label}{field.required ? ' *' : ''}</span>
                     <input
                       id={`field-${idx}`}
                       type={field.type}
@@ -99,16 +76,19 @@ const DynamicForm = ({ schema, onSubmit }) => {
                       onChange={(e) => handleChange(idx, e.target.value)}
                       required={field.required}
                       placeholder={`Enter ${field.label.toLowerCase()}`}
-                      className="form-input"
                     />
-                  </div>
+                  </label>
                 );
               })()
             ))}
+            </div>
+          ))}
+
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary">Submit Form</button>
           </div>
-        ))}
-        <button type="submit" className="submit-button">Submit Form</button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };
