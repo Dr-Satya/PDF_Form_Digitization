@@ -184,25 +184,28 @@ def generate_filled_pdf(original_pdf_path, filled_data, schema):
             # Add fields
             can.setFont("Helvetica", 10)
             for field in section.get('fields', []):
-                if field_index < len(filled_data):
-                    field_value = filled_data[field_index].get('value', '')
-                    label = field.get('label', f'Field {field_index + 1}')
-                    required = field.get('required', False)
-                    
-                    # Format field line
-                    field_text = f"{label}: {field_value}"
-                    if required and not field_value:
-                        field_text += " (REQUIRED)"
-                    
-                    can.drawString(70, y_position, field_text)
-                    y_position -= 15
-                    field_index += 1
-                    
-                    # Add some spacing between sections
-                    if y_position < 100:
-                        can.showPage()
-                        y_position = 750
-                        can.setFont("Helvetica", 12)
+                submitted_item = filled_data[field_index] if field_index < len(filled_data) else None
+                if isinstance(submitted_item, dict):
+                    field_value = submitted_item.get('value', '')
+                else:
+                    field_value = ''
+                label = field.get('label', f'Field {field_index + 1}')
+                required = field.get('required', False)
+                
+                # Format field line - always include the field with its value
+                field_text = f"{label}: {field_value}"
+                if required and not field_value:
+                    field_text += " (REQUIRED)"
+                
+                can.drawString(70, y_position, field_text)
+                y_position -= 15
+                field_index += 1
+                
+                # Page break if we're running out of space
+                if y_position < 100:
+                    can.showPage()
+                    y_position = 750
+                    can.setFont("Helvetica", 12)
             
             y_position -= 10
         
@@ -486,7 +489,7 @@ def list_submissions(form_id):
         return jsonify({"error": "Forbidden"}), 403
 
     cursor.execute(
-        "SELECT id, filled_data, submitted_at, generated_pdf_path FROM submissions WHERE form_id = %s ORDER BY submitted_at DESC",
+        "SELECT id, filled_data, submitted_at, generated_pdf_path, submitter_email FROM submissions WHERE form_id = %s ORDER BY submitted_at DESC",
         (str(form_id),),
     )
     submissions = cursor.fetchall()
@@ -494,10 +497,43 @@ def list_submissions(form_id):
     conn.close()
     return jsonify({"submissions": submissions}), 200
 
+@app.route('/api/migrate', methods=['POST'])
+@admin_required
+def run_migration():
+    """Apply database migrations"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Read and execute migration file
+        with open('migration_add_submitter_email.sql', 'r') as f:
+            migration_sql = f.read()
+        
+        # Execute each statement separately
+        statements = migration_sql.split(';')
+        for statement in statements:
+            statement = statement.strip()
+            if statement:
+                cursor.execute(statement)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"message": "Migration applied successfully"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": "Migration failed", "details": str(e)}), 500
+
 @app.route('/api/forms/<uuid:form_id>/submit', methods=['POST'])
 def submit_form(form_id):
     data = request.get_json() or {}
     filled_data = data.get('filled_data', [])
+    submitter_email = data.get('email', '').strip().lower()
+    
+    # Validate email
+    if not submitter_email or '@' not in submitter_email:
+        return jsonify({"error": "Valid email address is required"}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -512,6 +548,18 @@ def submit_form(form_id):
             conn.close()
             return jsonify({"error": "Form not found"}), 404
         
+        # Check for duplicate submission with same email
+        cursor.execute(
+            "SELECT id FROM submissions WHERE form_id = %s AND submitter_email = %s LIMIT 1",
+            (str(form_id), submitter_email)
+        )
+        existing_submission = cursor.fetchone()
+        
+        if existing_submission:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "A submission with this email address already exists for this form"}), 409
+        
         # Generate PDF
         pdf_content = generate_filled_pdf(form['original_pdf_path'], filled_data, form['form_schema'])
         
@@ -522,10 +570,10 @@ def submit_form(form_id):
         with open(pdf_path, 'wb') as f:
             f.write(pdf_content)
         
-        # Store submission with PDF path
+        # Store submission with email and PDF path
         cursor.execute(
-            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path) VALUES (%s, %s, %s)",
-            (str(form_id), json.dumps(filled_data), pdf_path),
+            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path, submitter_email) VALUES (%s, %s, %s, %s)",
+            (str(form_id), json.dumps(filled_data), pdf_path, submitter_email),
         )
         conn.commit()
         cursor.close()

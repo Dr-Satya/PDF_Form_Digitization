@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 
 const DynamicForm = ({ schema, onSubmit }) => {
   const [filledData, setFilledData] = useState([]);
+  const [email, setEmail] = useState('');
 
   const handleChange = (index, value) => {
     const newData = [...filledData];
     newData[index] = { label: getLabelAtIndex(index), value };
     setFilledData(newData);
+  };
+
+  const handleEmailChange = (value) => {
+    setEmail(value);
   };
 
   const getLabelAtIndex = (index) => {
@@ -22,7 +27,14 @@ const DynamicForm = ({ schema, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(filledData);
+    
+    // Validate email
+    if (!email || !email.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    
+    onSubmit(filledData, email);
   };
 
   let fieldIndex = 0;
@@ -44,6 +56,32 @@ const DynamicForm = ({ schema, onSubmit }) => {
         </div>
       )}
       <form onSubmit={handleSubmit} className="dynamic-form">
+        {/* Mandatory Email Field */}
+        <div className="form-field" style={{ 
+          border: '2px solid #007bff', 
+          borderRadius: '4px', 
+          padding: '12px', 
+          marginBottom: '20px',
+          backgroundColor: '#f8f9fa'
+        }}>
+          <label htmlFor="submitter-email" style={{ fontWeight: 'bold', color: '#007bff' }}>
+            Email Address <span style={{ color: 'red' }}>*</span>:
+          </label>
+          <input
+            id="submitter-email"
+            type="email"
+            value={email}
+            onChange={(e) => handleEmailChange(e.target.value)}
+            required
+            placeholder="Enter your email address"
+            className="form-input"
+            style={{ width: '100%', padding: '8px' }}
+          />
+          <small style={{ color: '#6c757d', fontSize: '12px' }}>
+            This field is required for submission tracking
+          </small>
+        </div>
+        
         {schema.sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="form-section">
             <h3>{section.title}</h3>

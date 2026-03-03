@@ -528,22 +528,20 @@ function AppContent() {
 
   }
 
-  const handleSubmitForm = async (filledData) => {
-
-    await fetch(`http://localhost:8000/api/forms/${formId}/submit`, {
-
+  const handleSubmitForm = async (filledData, email) => {
+    const response = await fetch(`http://localhost:8000/api/forms/${formId}/submit`, {
       method: 'POST',
-
       headers: { 'Content-Type': 'application/json' },
-
-      body: JSON.stringify({ filled_data: filledData }),
-
+      body: JSON.stringify({ filled_data: filledData, email: email }),
     })
 
-    alert('Form submitted successfully!')
-
-    await refreshSubmissions(formId)
-
+    const data = await response.json()
+    if (data.error) {
+      alert('Submission failed: ' + data.error);
+    } else {
+      alert('Form submitted successfully!');
+      await refreshSubmissions(formId);
+    }
   }
 
   const handleDownloadPdf = async (submissionId) => {
@@ -937,7 +935,21 @@ function AppContent() {
 
                 <li key={sub.id}>
 
-                  {new Date(sub.submitted_at).toLocaleString()} 
+                  <div>
+
+                    <strong>{new Date(sub.submitted_at).toLocaleString()}</strong>
+
+                    {sub.submitter_email && (
+
+                      <span style={{ marginLeft: '8px', color: '#007bff' }}>
+
+                        ({sub.submitter_email})
+
+                      </span>
+
+                    )}
+
+                  </div>
 
                   <button style={{ marginLeft: '8px' }} onClick={() => alert(JSON.stringify(sub.filled_data, null, 2))}>View</button>
 

@@ -27,14 +27,20 @@ const PublicForm = () => {
       });
   }, [slug]);
 
-  const handleSubmit = (filledData) => {
+  const handleSubmit = (filledData, email) => {
     fetch(`http://localhost:8000/api/forms/${formId}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filled_data: filledData })
+      body: JSON.stringify({ filled_data: filledData, email: email })
     })
       .then(res => res.json())
-      .then(() => alert('Form submitted successfully!'))
+      .then(data => {
+        if (data.error) {
+          alert('Submission failed: ' + data.error);
+        } else {
+          alert('Form submitted successfully!');
+        }
+      })
       .catch(() => alert('Submission failed'));
   };
 

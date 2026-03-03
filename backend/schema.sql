@@ -25,5 +25,6 @@ CREATE TABLE submissions (
     form_id UUID REFERENCES forms(id),
     filled_data JSONB,
     generated_pdf_path TEXT,
+    submitter_email VARCHAR(255),
     submitted_at TIMESTAMP DEFAULT NOW()
 );
