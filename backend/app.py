@@ -473,6 +473,65 @@ def get_form(form_id):
     return jsonify({"form_id": str(form['id']), "schema": form['form_schema']}), 200
 
 
+@app.route('/api/forms/<uuid:form_id>', methods=['DELETE'])
+@admin_required
+def delete_form(form_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            "SELECT id, admin_id, original_pdf_path FROM forms WHERE id = %s",
+            (str(form_id),),
+        )
+        form = cursor.fetchone()
+        if not form:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Form not found"}), 404
+
+        if str(form['admin_id']) != str(flask_g.user['id']):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Forbidden"}), 403
+
+        cursor.execute(
+            "SELECT generated_pdf_path FROM submissions WHERE form_id = %s",
+            (str(form_id),),
+        )
+        submission_rows = cursor.fetchall() or []
+        pdf_paths = [r.get('generated_pdf_path') for r in submission_rows if r.get('generated_pdf_path')]
+        original_pdf_path = form.get('original_pdf_path')
+
+        cursor.execute("DELETE FROM submissions WHERE form_id = %s", (str(form_id),))
+        cursor.execute("DELETE FROM forms WHERE id = %s", (str(form_id),))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        for path in pdf_paths:
+            try:
+                if path and os.path.exists(path):
+                    os.remove(path)
+            except Exception:
+                pass
+
+        try:
+            if original_pdf_path and os.path.exists(original_pdf_path):
+                os.remove(original_pdf_path)
+        except Exception:
+            pass
+
+        return jsonify({"message": "Form deleted"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Delete failed", "details": str(e)}), 500
+
+
 @app.route('/api/public/forms/<slug>', methods=['GET'])
 def get_public_form(slug):
     conn = get_db_connection()
@@ -670,6 +729,55 @@ def download_submission_pdf(submission_id):
         cursor.close()
         conn.close()
         return jsonify({"error": "Download failed", "details": str(e)}), 500
+
+
+@app.route('/api/submissions/<uuid:submission_id>', methods=['DELETE'])
+@admin_required
+def delete_submission(submission_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            """
+            SELECT s.id, s.form_id, s.generated_pdf_path, f.admin_id
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.id
+            WHERE s.id = %s
+            """,
+            (str(submission_id),),
+        )
+        submission = cursor.fetchone()
+        if not submission:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Submission not found"}), 404
+
+        if str(submission['admin_id']) != str(flask_g.user['id']):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Forbidden"}), 403
+
+        pdf_path = submission.get('generated_pdf_path')
+        cursor.execute("DELETE FROM submissions WHERE id = %s", (str(submission_id),))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        try:
+            if pdf_path and os.path.exists(pdf_path):
+                os.remove(pdf_path)
+        except Exception:
+            pass
+
+        return jsonify({"message": "Submission deleted"}), 200
+
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Delete failed", "details": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=8000)

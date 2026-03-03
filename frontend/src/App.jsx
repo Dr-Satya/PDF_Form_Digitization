@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import PDFViewer from './PDFViewer'
 import DynamicForm from './DynamicForm'
 import PublicForm from './PublicForm'
 
 function AppContent() {
-  const [count, setCount] = useState(0)
   const [formId, setFormId] = useState(null)
   const [schema, setSchema] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
@@ -544,6 +541,60 @@ function AppContent() {
     }
   }
 
+  const handleDeleteSubmission = async (submissionId) => {
+    if (!formId) return
+    const confirmed = window.confirm('Delete this submission and its generated PDF?')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/submissions/${submissionId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        await refreshSubmissions(formId)
+      } else {
+        const details = data?.details ? `\nDetails: ${data.details}` : ''
+        alert('Delete failed: ' + (data?.error || 'Unknown error') + details)
+      }
+    } catch (error) {
+      alert('Delete error: ' + error.message)
+    }
+  }
+
+  const handleDeleteForm = async () => {
+    if (!formId) return
+    const confirmed = window.confirm('Delete this form and ALL its submissions and PDFs? This cannot be undone.')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/forms/${formId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        setFormId(null)
+        setSchema(null)
+        setShareUrl(null)
+        setSubmissions([])
+        await loadForms()
+      } else {
+        const details = data?.details ? `\nDetails: ${data.details}` : ''
+        alert('Delete failed: ' + (data?.error || 'Unknown error') + details)
+      }
+    } catch (error) {
+      alert('Delete error: ' + error.message)
+    }
+  }
+
   const handleDownloadPdf = async (submissionId) => {
     try {
       const response = await fetch(`http://localhost:8000/api/submissions/${submissionId}/download`, {
@@ -643,22 +694,6 @@ function AppContent() {
 
     <>
 
-      <div>
-
-        <a href="https://vite.dev" target="_blank">
-
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-
-        </a>
-
-        <a href="https://react.dev" target="_blank">
-
-          <img src={reactLogo} className="logo react" alt="React logo" />
-
-        </a>
-
-      </div>
-
       <h1>PDF Form Digitization - Admin</h1>
 
       <button onClick={handleLogout}>Logout</button>
@@ -696,6 +731,8 @@ function AppContent() {
           <p>No forms yet.</p>
 
         ) : (
+
+          <>
 
           <select
 
@@ -736,6 +773,16 @@ function AppContent() {
             ))}
 
           </select>
+
+          <button
+            style={{ marginLeft: '8px', backgroundColor: '#dc3545', color: 'white' }}
+            onClick={handleDeleteForm}
+            disabled={!formId}
+          >
+            Delete Form
+          </button>
+
+          </>
 
         )}
 
@@ -962,6 +1009,13 @@ function AppContent() {
                     </button>
                   )}
 
+                  <button
+                    style={{ marginLeft: '8px', backgroundColor: '#dc3545', color: 'white' }}
+                    onClick={() => handleDeleteSubmission(sub.id)}
+                  >
+                    Delete
+                  </button>
+
                 </li>
 
               ))}
@@ -973,28 +1027,6 @@ function AppContent() {
         </div>
 
       )}
-
-      <div className="card">
-
-        <button onClick={() => setCount((count) => count + 1)}>
-
-          count is {count}
-
-        </button>
-
-        <p>
-
-          Edit <code>src/App.jsx</code> and save to test HMR
-
-        </p>
-
-      </div>
-
-      <p className="read-the-docs">
-
-        Click on the Vite and React logos to learn more
-
-      </p>
 
     </>
 
