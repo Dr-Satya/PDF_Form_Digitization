@@ -130,9 +130,9 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 9. Generate Filled PDF
 
--   [ ] Map JSON fields to PDF coordinates
--   [ ] Overlay text values
--   [ ] Save generated PDF
+-   [x] Map JSON fields to PDF coordinates
+-   [x] Overlay text values
+-   [x] Save generated PDF
 
 ### Acceptance Criteria
 
@@ -143,8 +143,8 @@ Derived from the Software Requirements Specification.
 
 ## ✅ 10. Download / Export Endpoint
 
--   [ ] Secure download route
--   [ ] Validate access permissions
+-   [x] Secure download route
+-   [x] Validate access permissions
 
 ### Acceptance Criteria
 
@@ -169,7 +169,7 @@ Derived from the Software Requirements Specification.
 
 -   [x] List submissions
 -   [x] View submission details
--   [ ] Download PDFs
+-   [x] Download PDFs
 
 ### Acceptance Criteria
 

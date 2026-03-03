@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, g as flask_g
+from flask import Flask, jsonify, request, g as flask_g, send_file
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.utils import secure_filename
 import uuid
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 import json
 import traceback
 import secrets
@@ -14,6 +14,9 @@ import re
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, get_jwt
 import bcrypt
 from functools import wraps
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import io
 
 load_dotenv()
 
@@ -108,6 +111,131 @@ def health_check():
         return jsonify({"status": "OK"}), 200
     except Exception as e:
         return jsonify({"status": "ERROR", "message": str(e)}), 500
+
+def generate_filled_pdf(original_pdf_path, filled_data, schema):
+    """
+    Generate a filled PDF by overlaying form data onto the original PDF.
+    For now, creates a simple PDF with the form data.
+    """
+    try:
+        # Create a simple PDF with the filled data
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        
+        # Add title
+        form_name = schema.get('name', 'Generated Form')
+        can.setFont("Helvetica-Bold", 16)
+        can.drawString(50, 750, f"Form: {form_name}")
+        
+        # Add submission date
+        from datetime import datetime
+        can.setFont("Helvetica", 10)
+        can.drawString(50, 730, f"Submitted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Add admin instructions if present
+        admin_text = schema.get('adminText')
+        if admin_text:
+            y_position = 710
+            can.setFont("Helvetica-Oblique", 9)
+            can.drawString(50, y_position, "Instructions:")
+            y_position -= 12
+            
+            # Wrap long text
+            max_width = 500
+            words = admin_text.split()
+            lines = []
+            current_line = []
+            
+            for word in words:
+                test_line = ' '.join(current_line + [word])
+                if len(test_line) <= 80:  # Approximate character limit
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
+                    else:
+                        lines.append(word)
+            if current_line:
+                lines.append(' '.join(current_line))
+            
+            for line in lines:
+                if y_position < 100:
+                    can.showPage()
+                    y_position = 750
+                    can.setFont("Helvetica-Oblique", 9)
+                can.drawString(50, y_position, line)
+                y_position -= 12
+            
+            y_position -= 10  # Extra spacing after instructions
+        else:
+            y_position = 700
+        
+        # Add form data
+        can.setFont("Helvetica", 12)
+        
+        field_index = 0
+        for section in schema.get('sections', []):
+            # Add section title
+            can.setFont("Helvetica-Bold", 12)
+            can.drawString(50, y_position, section.get('title', 'Section'))
+            y_position -= 20
+            
+            # Add fields
+            can.setFont("Helvetica", 10)
+            for field in section.get('fields', []):
+                if field_index < len(filled_data):
+                    field_value = filled_data[field_index].get('value', '')
+                    label = field.get('label', f'Field {field_index + 1}')
+                    required = field.get('required', False)
+                    
+                    # Format field line
+                    field_text = f"{label}: {field_value}"
+                    if required and not field_value:
+                        field_text += " (REQUIRED)"
+                    
+                    can.drawString(70, y_position, field_text)
+                    y_position -= 15
+                    field_index += 1
+                    
+                    # Add some spacing between sections
+                    if y_position < 100:
+                        can.showPage()
+                        y_position = 750
+                        can.setFont("Helvetica", 12)
+            
+            y_position -= 10
+        
+        can.save()
+        
+        # Move to the beginning of the StringIO buffer
+        packet.seek(0)
+        
+        # Create a new PDF with the generated content
+        new_pdf = PdfReader(packet)
+        output = PdfWriter()
+        
+        # If original PDF exists, merge it
+        if os.path.exists(original_pdf_path):
+            original_pdf = PdfReader(original_pdf_path)
+            for page in original_pdf.pages:
+                output.add_page(page)
+        
+        # Add our generated page
+        for page in new_pdf.pages:
+            output.add_page(page)
+        
+        # Save the result
+        output_stream = io.BytesIO()
+        output.write(output_stream)
+        output_stream.seek(0)
+        
+        return output_stream.getvalue()
+        
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        traceback.print_exc()
+        return None
 
 @app.route('/api/forms/upload', methods=['POST'])
 @admin_required
@@ -358,7 +486,7 @@ def list_submissions(form_id):
         return jsonify({"error": "Forbidden"}), 403
 
     cursor.execute(
-        "SELECT id, filled_data, submitted_at FROM submissions WHERE form_id = %s ORDER BY submitted_at DESC",
+        "SELECT id, filled_data, submitted_at, generated_pdf_path FROM submissions WHERE form_id = %s ORDER BY submitted_at DESC",
         (str(form_id),),
     )
     submissions = cursor.fetchall()
@@ -370,16 +498,100 @@ def list_submissions(form_id):
 def submit_form(form_id):
     data = request.get_json() or {}
     filled_data = data.get('filled_data', [])
+    
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO submissions (form_id, filled_data) VALUES (%s, %s)",
-        (str(form_id), json.dumps(filled_data)),
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({"message": "Submission successful"}), 201
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # Get form details and schema
+        cursor.execute("SELECT original_pdf_path, form_schema FROM forms WHERE id = %s", (str(form_id),))
+        form = cursor.fetchone()
+        
+        if not form:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Form not found"}), 404
+        
+        # Generate PDF
+        pdf_content = generate_filled_pdf(form['original_pdf_path'], filled_data, form['form_schema'])
+        
+        # Save PDF file
+        pdf_filename = f"submission_{uuid.uuid4()}.pdf"
+        pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], pdf_filename)
+        
+        with open(pdf_path, 'wb') as f:
+            f.write(pdf_content)
+        
+        # Store submission with PDF path
+        cursor.execute(
+            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path) VALUES (%s, %s, %s)",
+            (str(form_id), json.dumps(filled_data), pdf_path),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"message": "Submission successful", "pdf_generated": True}), 201
+        
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Submission failed", "details": str(e)}), 500
+
+@app.route('/api/submissions/<uuid:submission_id>/download', methods=['GET'])
+@admin_required
+def download_submission_pdf(submission_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # Get submission details with form info
+        cursor.execute("""
+            SELECT s.id, s.form_id, s.generated_pdf_path, s.submitted_at, f.admin_id, f.form_schema
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.id
+            WHERE s.id = %s
+        """, (str(submission_id),))
+        
+        submission = cursor.fetchone()
+        
+        if not submission:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Submission not found"}), 404
+        
+        # Check admin ownership
+        if str(submission['admin_id']) != str(flask_g.user['id']):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Forbidden"}), 403
+        
+        # Check if PDF exists
+        if not submission['generated_pdf_path'] or not os.path.exists(submission['generated_pdf_path']):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "PDF not available"}), 404
+        
+        # Get form name for filename
+        form_name = submission['form_schema'].get('name', 'form')
+        safe_name = secure_filename(form_name)
+        filename = f"{safe_name}_submission_{submission_id}.pdf"
+        
+        cursor.close()
+        conn.close()
+        
+        return send_file(
+            submission['generated_pdf_path'],
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Download failed", "details": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=8000)

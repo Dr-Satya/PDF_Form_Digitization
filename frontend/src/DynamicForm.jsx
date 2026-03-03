@@ -30,6 +30,19 @@ const DynamicForm = ({ schema, onSubmit }) => {
   return (
     <div className="form-container">
       <h2>{schema?.name ? schema.name : 'Generated Form'}</h2>
+      {schema?.adminText && (
+        <div className="admin-instructions" style={{ 
+          backgroundColor: '#f8f9fa', 
+          border: '1px solid #dee2e6', 
+          borderRadius: '4px', 
+          padding: '12px', 
+          marginBottom: '20px',
+          fontSize: '14px',
+          color: '#495057'
+        }}>
+          <strong>Instructions:</strong> {schema.adminText}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="dynamic-form">
         {schema.sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="form-section">

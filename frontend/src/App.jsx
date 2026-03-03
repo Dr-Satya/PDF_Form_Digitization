@@ -63,6 +63,150 @@ function AppContent() {
 
   }
 
+  const handleSchemaAdminTextChange = (value) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      return { ...prev, adminText: value }
+
+    })
+
+  }
+
+  const handleSchemaSectionChange = (sectionIndex, changes) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+
+      const section = { ...sections[sectionIndex], ...changes }
+
+      sections[sectionIndex] = section
+
+      next.sections = sections
+
+      return next
+
+    })
+
+  }
+
+  const handleAddSection = () => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+
+      sections.push({
+
+        title: `Section ${sections.length + 1}`,
+
+        fields: []
+
+      })
+
+      next.sections = sections
+
+      return next
+
+    })
+
+  }
+
+  const handleDeleteSection = (sectionIndex) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+
+      sections.splice(sectionIndex, 1)
+
+      next.sections = sections
+
+      return next
+
+    })
+
+  }
+
+  const handleAddField = (sectionIndex) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+
+      const section = { ...sections[sectionIndex] }
+
+      const fields = Array.isArray(section.fields) ? [...section.fields] : []
+
+      fields.push({
+
+        label: `Field ${fields.length + 1}`,
+
+        type: 'text',
+
+        required: false
+
+      })
+
+      section.fields = fields
+
+      sections[sectionIndex] = section
+
+      next.sections = sections
+
+      return next
+
+    })
+
+  }
+
+  const handleDeleteField = (sectionIndex, fieldIndex) => {
+
+    setSchema((prev) => {
+
+      if (!prev) return prev
+
+      const next = { ...prev }
+
+      const sections = Array.isArray(next.sections) ? [...next.sections] : []
+
+      const section = { ...sections[sectionIndex] }
+
+      const fields = Array.isArray(section.fields) ? [...section.fields] : []
+
+      fields.splice(fieldIndex, 1)
+
+      section.fields = fields
+
+      sections[sectionIndex] = section
+
+      next.sections = sections
+
+      return next
+
+    })
+
+  }
+
   const handleSaveSchema = async () => {
 
     if (!formId || !schema) return
@@ -402,6 +546,34 @@ function AppContent() {
 
   }
 
+  const handleDownloadPdf = async (submissionId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/submissions/${submissionId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `submission_${submissionId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        const data = await response.json()
+        const details = data?.details ? `\nDetails: ${data.details}` : ''
+        alert('Download failed: ' + (data?.error || 'Unknown error') + details)
+      }
+    } catch (error) {
+      alert('Download error: ' + error.message)
+    }
+  }
+
   if (!token) {
 
     return (
@@ -607,11 +779,57 @@ function AppContent() {
 
           </div>
 
+          <div style={{ marginBottom: '12px' }}>
+
+            <label style={{ marginRight: '8px' }}>Admin Instructions (shown to users):</label>
+
+            <textarea
+
+              value={schema.adminText || ''}
+
+              onChange={(e) => handleSchemaAdminTextChange(e.target.value)}
+
+              placeholder="Add instructions or notes for users filling this form..."
+
+              style={{ width: '100%', height: '80px', marginTop: '8px' }}
+
+            />
+
+          </div>
+
           {schema.sections?.map((section, sectionIndex) => (
 
             <div key={sectionIndex} style={{ border: '1px solid #ddd', padding: '12px', marginBottom: '12px' }}>
 
-              <h3>{section.title}</h3>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+
+                <input
+
+                  type="text"
+
+                  value={section.title || ''}
+
+                  onChange={(e) => handleSchemaSectionChange(sectionIndex, { title: e.target.value })}
+
+                  style={{ flex: 1, fontWeight: 'bold' }}
+
+                  placeholder="Section title"
+
+                />
+
+                <button 
+
+                  onClick={() => handleDeleteSection(sectionIndex)}
+
+                  style={{ backgroundColor: '#f44336', color: 'white', border: 'none', padding: '4px 8px', cursor: 'pointer' }}
+
+                >
+
+                  Delete Section
+
+                </button>
+
+              </div>
 
               {section.fields?.map((field, fieldIndex) => (
 
@@ -647,15 +865,51 @@ function AppContent() {
 
                   </label>
 
+                  <button 
+
+                    onClick={() => handleDeleteField(sectionIndex, fieldIndex)}
+
+                    style={{ backgroundColor: '#ff9800', color: 'white', border: 'none', padding: '4px 8px', cursor: 'pointer' }}
+
+                  >
+
+                    Delete Field
+
+                  </button>
+
                 </div>
 
               ))}
+
+              <button 
+
+                onClick={() => handleAddField(sectionIndex)}
+
+                style={{ backgroundColor: '#2196F3', color: 'white', border: 'none', padding: '6px 12px', cursor: 'pointer', marginTop: '8px' }}
+
+              >
+
+                Add Field
+
+              </button>
 
             </div>
 
           ))}
 
-          <button onClick={handleSaveSchema}>Save Form</button>
+          <button 
+
+            onClick={handleAddSection}
+
+            style={{ backgroundColor: '#4CAF50', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer', marginTop: '12px' }}
+
+          >
+
+            Add New Section
+
+          </button>
+
+          <button onClick={handleSaveSchema} style={{ marginLeft: '12px' }}>Save Form</button>
 
         </div>
 
@@ -686,6 +940,15 @@ function AppContent() {
                   {new Date(sub.submitted_at).toLocaleString()} 
 
                   <button style={{ marginLeft: '8px' }} onClick={() => alert(JSON.stringify(sub.filled_data, null, 2))}>View</button>
+
+                  {sub.generated_pdf_path && (
+                    <button 
+                      style={{ marginLeft: '8px', backgroundColor: '#4CAF50', color: 'white' }} 
+                      onClick={() => handleDownloadPdf(sub.id)}
+                    >
+                      Download PDF
+                    </button>
+                  )}
 
                 </li>
 

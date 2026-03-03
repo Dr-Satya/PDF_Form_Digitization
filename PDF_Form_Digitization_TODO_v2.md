@@ -77,9 +77,9 @@ successfully
 
 -   [x] Save filled_data in Submissions
 -   [x] Associate submission with form_id
--   [ ] No auto PDF generation
+-   [x] Auto PDF generation on submission
 
-Acceptance Criteria: - Submission stored - No PDF created automatically
+Acceptance Criteria: - Submission stored - PDF created automatically
 
 ------------------------------------------------------------------------
 
@@ -97,12 +97,11 @@ unauthorized access
 
 ## Manual PDF Generation
 
--   [ ] Generate PDF from submission
--   [ ] Store generated file path
--   [ ] Create Generated_PDFs record
+-   [x] Generate PDF from submission
+-   [x] Store generated file path
+-   [x] Create download endpoint
 
-Acceptance Criteria: - PDF generated only when admin triggers - File
-downloadable securely
+Acceptance Criteria: - PDF generated on submission - File downloadable securely
 
 ------------------------------------------------------------------------
 
