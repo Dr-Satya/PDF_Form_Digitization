@@ -17,6 +17,7 @@ from functools import wraps
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 import io
+import zipfile
 
 load_dotenv()
 
@@ -844,6 +845,150 @@ def delete_submission(submission_id):
         cursor.close()
         conn.close()
         return jsonify({"error": "Delete failed", "details": str(e)}), 500
+
+
+@app.route('/api/submissions/bulk-download', methods=['POST'])
+@admin_required
+def bulk_download_submissions():
+    data = request.get_json() or {}
+    submission_ids = data.get('submission_ids')
+
+    if not isinstance(submission_ids, list) or not submission_ids:
+        return jsonify({"error": "submission_ids must be a non-empty list"}), 400
+
+    submission_ids = [str(sid) for sid in submission_ids]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            """
+            SELECT s.id, s.generated_pdf_path, s.submitted_at, s.submitter_email,
+                   f.admin_id, f.form_schema
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.id
+            WHERE s.id = ANY(%s::uuid[])
+            """,
+            (submission_ids,),
+        )
+        rows = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+
+        if len(rows) != len(set(submission_ids)):
+            return jsonify({"error": "One or more submissions not found"}), 404
+
+        for r in rows:
+            if str(r.get('admin_id')) != str(flask_g.user['id']):
+                return jsonify({"error": "Forbidden"}), 403
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for r in rows:
+                pdf_path = r.get('generated_pdf_path')
+                if not pdf_path or not os.path.exists(pdf_path):
+                    return jsonify({"error": "One or more PDFs not available"}), 404
+
+                form_schema = r.get('form_schema')
+                if isinstance(form_schema, str):
+                    try:
+                        form_schema = json.loads(form_schema)
+                    except Exception:
+                        form_schema = {}
+
+                form_name = (form_schema or {}).get('name', 'form')
+                safe_form_name = secure_filename(form_name) or 'form'
+                email = r.get('submitter_email') or 'anonymous'
+                safe_email = secure_filename(email) or 'anonymous'
+
+                sid = str(r.get('id'))
+                filename = f"{safe_form_name}_{safe_email}_{sid}.pdf"
+                try:
+                    with open(pdf_path, 'rb') as f:
+                        zf.writestr(filename, f.read())
+                except Exception:
+                    return jsonify({"error": "Failed to read one or more PDFs"}), 500
+
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name='submissions.zip',
+            mimetype='application/zip',
+        )
+
+    except Exception as e:
+        try:
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+        return jsonify({"error": "Bulk download failed", "details": str(e)}), 500
+
+
+@app.route('/api/submissions/bulk-delete', methods=['POST'])
+@admin_required
+def bulk_delete_submissions():
+    data = request.get_json() or {}
+    submission_ids = data.get('submission_ids')
+
+    if not isinstance(submission_ids, list) or not submission_ids:
+        return jsonify({"error": "submission_ids must be a non-empty list"}), 400
+
+    submission_ids = [str(sid) for sid in submission_ids]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            """
+            SELECT s.id, s.generated_pdf_path, f.admin_id
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.id
+            WHERE s.id = ANY(%s::uuid[])
+            """,
+            (submission_ids,),
+        )
+        rows = cursor.fetchall() or []
+
+        if len(rows) != len(set(submission_ids)):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "One or more submissions not found"}), 404
+
+        for r in rows:
+            if str(r.get('admin_id')) != str(flask_g.user['id']):
+                cursor.close()
+                conn.close()
+                return jsonify({"error": "Forbidden"}), 403
+
+        pdf_paths = [r.get('generated_pdf_path') for r in rows if r.get('generated_pdf_path')]
+        cursor.execute("DELETE FROM submissions WHERE id = ANY(%s::uuid[])", (submission_ids,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        deleted_files = 0
+        for path in pdf_paths:
+            try:
+                if path and os.path.exists(path):
+                    os.remove(path)
+                    deleted_files += 1
+            except Exception:
+                pass
+
+        return jsonify({"message": "Submissions deleted", "deleted": len(rows), "deleted_files": deleted_files}), 200
+
+    except Exception as e:
+        conn.rollback()
+        try:
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+        return jsonify({"error": "Bulk delete failed", "details": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=8000)

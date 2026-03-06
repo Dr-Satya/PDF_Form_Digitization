@@ -82,11 +82,13 @@ const NAV_ITEMS = [
 ]
 
 function AppContent() {
+  const [count, setCount] = useState(0)
   const [formId, setFormId] = useState(null)
   const [schema, setSchema] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [shareUrl, setShareUrl] = useState(null)
   const [submissions, setSubmissions] = useState([])
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState([])
   const [forms, setForms] = useState([])
   const [newFormName, setNewFormName] = useState('')
   const [activeTab, setActiveTab] = useState('upload')
@@ -319,6 +321,70 @@ function AppContent() {
       const data = await response.json()
       const nextSubs = Array.isArray(data) ? data : data.submissions || []
       setSubmissions(nextSubs)
+      setSelectedSubmissionIds([])
+    }
+  }
+
+  const toggleSubmissionSelected = (id) => {
+    setSelectedSubmissionIds((prev) => {
+      const sid = String(id)
+      return prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid]
+    })
+  }
+
+  const setAllSubmissionsSelected = (checked) => {
+    if (!checked) {
+      setSelectedSubmissionIds([])
+      return
+    }
+    setSelectedSubmissionIds(submissions.map((s) => String(s.id)))
+  }
+
+  const handleBulkDownloadSubmissions = async () => {
+    if (!selectedSubmissionIds.length) return
+    try {
+      const response = await fetch('http://localhost:8000/api/submissions/bulk-download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ submission_ids: selectedSubmissionIds })
+      })
+      if (!response.ok) {
+        alert('Failed to download submissions')
+        return
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'submissions.zip'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => window.URL.revokeObjectURL(url), 30_000)
+    } catch {
+      alert('Failed to download submissions')
+    }
+  }
+
+  const handleBulkDeleteSubmissions = async () => {
+    if (!selectedSubmissionIds.length) return
+    if (!window.confirm(`Delete ${selectedSubmissionIds.length} submission(s) and PDFs?`)) return
+    const response = await fetch('http://localhost:8000/api/submissions/bulk-delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ submission_ids: selectedSubmissionIds })
+    })
+    if (response.ok) {
+      setSelectedSubmissionIds([])
+      loadSubmissions()
+    } else {
+      alert('Failed to delete submissions')
     }
   }
 
@@ -714,6 +780,20 @@ function AppContent() {
             <button className="btn btn-neutral" onClick={refreshSubmissions} disabled={!formId}>
               Refresh
             </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleBulkDownloadSubmissions}
+              disabled={!selectedSubmissionIds.length}
+            >
+              <IconDownload /> Download Selected
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={handleBulkDeleteSubmissions}
+              disabled={!selectedSubmissionIds.length}
+            >
+              <IconTrash /> Delete Selected
+            </button>
           </div>
         </div>
         {submissions.length === 0 ? (
@@ -722,11 +802,32 @@ function AppContent() {
           </div>
         ) : (
           <ul className="list">
+            <li className="list-item" style={{ alignItems: 'center' }}>
+              <label className="field-required" style={{ marginRight: '0.75rem' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedSubmissionIds.length > 0 && selectedSubmissionIds.length === submissions.length}
+                  onChange={(e) => setAllSubmissionsSelected(e.target.checked)}
+                />
+                Select all
+              </label>
+              <div style={{ flex: 1, color: 'var(--muted)' }}>
+                {selectedSubmissionIds.length} selected
+              </div>
+            </li>
             {submissions.map((sub) => (
               <li key={sub.id} className="list-item">
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSubmissionIds.includes(String(sub.id))}
+                    onChange={() => toggleSubmissionSelected(sub.id)}
+                    aria-label="Select submission"
+                  />
+                  <div>
                   <p className="list-title">{sub.submitter_email || 'Anonymous user'}</p>
                   <p className="list-meta">{new Date(sub.submitted_at).toLocaleString()}</p>
+                  </div>
                 </div>
                 <div className="list-actions">
                   <button className="btn btn-primary" onClick={() => handleDownloadPdf(sub.id)}>
