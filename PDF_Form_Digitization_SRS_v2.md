@@ -7,10 +7,11 @@
 # 1. System Overview
 
 This is a cloud-based PDF Form Digitization and Workflow Application
-supporting two user types:
+supporting three user types:
 
-1.  Admin User
-2.  Public User (Anonymous Form Filler)
+1.  App Administrator (Superuser)
+2.  Admin User
+3.  Public User (Anonymous Form Filler)
 
 The system allows admins to upload PDFs, convert them into online forms,
 publish them via unique URLs, collect submissions, and generate filled
@@ -20,7 +21,24 @@ PDFs from submitted data.
 
 # 2. User Roles
 
-## 2.1 Admin User
+## 2.1 App Administrator (Superuser)
+
+Capabilities:
+
+-   Login (JWT)
+-   Create admin users
+-   List admin users
+-   Modify admin email
+-   Reset admin passwords
+
+Notes:
+
+-   Admin creation is restricted to App Administrator.
+-   A one-time bootstrap script is used to create the first app admin.
+
+------------------------------------------------------------------------
+
+## 2.2 Admin User
 
 Capabilities:
 
@@ -34,10 +52,14 @@ Capabilities:
 -   Generate filled PDFs (manual trigger)
 -   Download generated PDFs
 -   Activate / Deactivate forms
+-   Delete forms
+-   Delete submissions
+-   Bulk download selected submission PDFs (ZIP)
+-   Bulk delete selected submissions
 
 ------------------------------------------------------------------------
 
-## 2.2 Public User
+## 2.3 Public User
 
 Capabilities:
 
@@ -65,6 +87,11 @@ Restrictions:
 Acceptance Criteria: - Admin login returns valid JWT - Unauthorized
 access blocked (401/403)
 
+App Administrator Authentication:
+
+-   JWT-based authentication
+-   Role-based access control middleware (`app_admin`)
+
 ------------------------------------------------------------------------
 
 ## 3.2 Form Creation Workflow
@@ -80,9 +107,13 @@ access blocked (401/403)
 
 ## 3.3 Public Form Access
 
-Public URL format:
+Public URL format (frontend):
 
-    https://app.com/forms/{public_slug}
+    http://localhost:3000/public/{public_slug}
+
+Public API route:
+
+    GET http://localhost:8000/api/public/forms/{public_slug}
 
 System must: - Validate form status is ACTIVE - Render dynamic schema -
 Accept submission
@@ -93,14 +124,21 @@ Accept submission
 
 -   Store submission data
 -   Associate with form_id
--   DO NOT auto-generate PDF
+-   Generate filled PDF on successful submission
+-   Store generated PDF path with submission
+-   Require submitter email (mandatory field)
+-   Prevent duplicate submissions per form by email
 
 ------------------------------------------------------------------------
 
 ## 3.5 Admin PDF Generation
 
-Admin must manually: - Select submission - Trigger PDF generation -
-Download generated PDF
+Admin can: - Select submission - Download generated PDF
+
+Bulk operations:
+
+-   Download multiple submissions as a single ZIP
+-   Delete multiple submissions in one operation
 
 ------------------------------------------------------------------------
 
@@ -111,8 +149,8 @@ Download generated PDF
 -   id (UUID)
 -   email (VARCHAR)
 -   password_hash (TEXT)
--   role (ENUM: admin)
--   created_at (TIMESTAMP)
+-   role (ENUM: app_admin, admin, public)
+-   created_at (TIMESTAMP) (optional)
 
 ## Forms
 
@@ -129,43 +167,69 @@ Download generated PDF
 -   id (UUID)
 -   form_id (UUID FK Forms.id)
 -   filled_data (JSONB)
--   submitted_at (TIMESTAMP)
-
-## Generated_PDFs
-
--   id (UUID)
--   submission_id (UUID FK Submissions.id)
 -   generated_pdf_path (TEXT)
--   generated_at (TIMESTAMP)
+-   submitter_email (VARCHAR)
+-   submitted_at (TIMESTAMP)
 
 ------------------------------------------------------------------------
 
 # 5. API Endpoints
 
+## App Administrator Endpoints (Protected)
+
+-   POST /api/app-admin/login
+-   GET /api/app-admin/admins
+-   POST /api/app-admin/admins
+-   PUT /api/app-admin/admins/{admin_id}
+-   POST /api/app-admin/admins/{admin_id}/reset-password
+
 ## Admin Endpoints (Protected)
 
 -   POST /api/admin/login
--   POST /api/admin/forms/upload
--   POST /api/admin/forms/{id}/save
--   GET /api/admin/forms
--   GET /api/admin/forms/{id}/submissions
--   POST /api/admin/submissions/{id}/generate-pdf
--   GET /api/admin/generated/{id}/download
+-   POST /api/admin/register (App Administrator only)
+
+-   GET /api/forms
+-   POST /api/forms (create blank form)
+-   GET /api/forms/{form_id}
+-   PUT /api/forms/{form_id}/schema
+-   POST /api/forms/{form_id}/activate
+-   POST /api/forms/{form_id}/deactivate
+-   DELETE /api/forms/{form_id}
+
+-   POST /api/forms/upload
+-   GET /api/forms/{form_id}/submissions
+
+-   GET /api/submissions/{submission_id}/download
+-   DELETE /api/submissions/{submission_id}
+
+-   POST /api/submissions/bulk-download
+-   POST /api/submissions/bulk-delete
 
 ## Public Endpoints
 
--   GET /api/forms/{public_slug}
--   POST /api/forms/{public_slug}/submit
+-   GET /api/public/forms/{public_slug}
+-   POST /api/forms/{form_id}/submit
 
 ------------------------------------------------------------------------
 
 # 6. Security Requirements
 
 -   JWT authentication required for admin endpoints
+-   JWT authentication required for app administrator endpoints
 -   Slugs must be random and non-sequential (min 16 chars)
 -   Admin can access only their own forms
 -   Rate limiting on public submission endpoint
 -   HTTPS mandatory
+
+------------------------------------------------------------------------
+
+# 7. UI / UX Requirements (Implemented)
+
+-   Modern admin dashboard layout with sidebar navigation
+-   Public forms render with professional card layout
+-   Branding:
+    -   Pragyanovation logo on admin, app-admin, and public pages
+    -   Global footer: "© 2026 Pragaynovation AI Tech LLP. All rights reserved."
 
 ------------------------------------------------------------------------
 

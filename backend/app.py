@@ -78,21 +78,72 @@ def get_db_connection():
     conn = psycopg2.connect(os.getenv('DATABASE_URL'))
     return conn
 
+
+@app.route('/api/admin/bootstrap-register', methods=['POST'])
+def bootstrap_register_admin():
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip()
+    password = data.get('password')
+    if not email or not password:
+        return jsonify({"error": "Email and password required"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT COUNT(*)::int AS cnt FROM users WHERE role = 'admin'")
+        row = cursor.fetchone() or {}
+        if int(row.get('cnt') or 0) > 0:
+            return jsonify({"error": "Bootstrap registration disabled"}), 403
+
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute(
+            "INSERT INTO users (email, password_hash, role) VALUES (%s, %s, 'admin') RETURNING id, email, role",
+            (email, hashed.decode('utf-8')),
+        )
+        user = cursor.fetchone()
+        conn.commit()
+
+        access_token = create_access_token(
+            identity=str(user['id']),
+            additional_claims={
+                'email': user['email'],
+                'role': user['role'],
+            },
+        )
+        return jsonify({"message": "Admin registered", "access_token": access_token}), 201
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        return jsonify({"error": "Email already exists"}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route('/api/admin/register', methods=['POST'])
-@app_admin_required
 def register_admin():
-    data = request.get_json()
-    email = data.get('email')
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip()
     password = data.get('password')
     if not email or not password:
         return jsonify({"error": "Email and password required"}), 400
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cursor.execute("INSERT INTO users (email, password_hash, role) VALUES (%s, %s, 'admin')", (email, hashed.decode('utf-8')))
+        cursor.execute(
+            "INSERT INTO users (email, password_hash, role) VALUES (%s, %s, 'admin') RETURNING id, email, role",
+            (email, hashed.decode('utf-8')),
+        )
+        user = cursor.fetchone()
         conn.commit()
-        return jsonify({"message": "Admin registered successfully"}), 201
+
+        access_token = create_access_token(
+            identity=str(user['id']),
+            additional_claims={
+                'email': user['email'],
+                'role': user['role'],
+            },
+        )
+        return jsonify({"message": "Admin registered", "access_token": access_token}), 201
     except psycopg2.IntegrityError:
         conn.rollback()
         return jsonify({"error": "Email already exists"}), 400

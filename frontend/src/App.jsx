@@ -5,6 +5,7 @@ import PDFViewer from './PDFViewer'
 import DynamicForm from './DynamicForm'
 import PublicForm from './PublicForm'
 import AppAdmin from './AppAdmin'
+import Footer from './Footer'
 
 const IconUpload = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -93,6 +94,7 @@ function AppContent() {
   const [forms, setForms] = useState([])
   const [newFormName, setNewFormName] = useState('')
   const [activeTab, setActiveTab] = useState('upload')
+  const [authMode, setAuthMode] = useState('login')
   const [copyStatus, setCopyStatus] = useState('')
 
   useEffect(() => {
@@ -213,6 +215,39 @@ function AppContent() {
       setActiveTab('upload')
     } else {
       alert('Invalid credentials')
+    }
+  }
+
+  const handleBootstrapRegister = async (e) => {
+    e.preventDefault()
+    const email = e.target.email.value
+    const password = e.target.password.value
+
+    const response = await fetch('http://localhost:8000/api/admin/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const accessToken = data.token || data.access_token
+      if (!accessToken) {
+        alert('Registration response missing token')
+        return
+      }
+      setToken(accessToken)
+      setActiveTab('upload')
+      setAuthMode('login')
+    } else {
+      let message = 'Registration failed'
+      try {
+        const err = await response.json()
+        message = err.error || message
+      } catch {
+        // ignore
+      }
+      alert(message)
     }
   }
 
@@ -849,19 +884,35 @@ function AppContent() {
   if (!token) {
     return (
       <div className="auth-shell">
-        <form className="auth-card" onSubmit={handleLogin}>
-          <h1>Admin Login</h1>
-          <p>Enter your credentials to manage forms.</p>
-          <label className="form-group">
-            <span>Email</span>
-            <input type="email" name="email" required aria-required="true" />
-          </label>
-          <label className="form-group">
-            <span>Password</span>
-            <input type="password" name="password" required aria-required="true" />
-          </label>
-          <button className="btn btn-primary" type="submit">Login</button>
-        </form>
+        <div>
+          <form className="auth-card" onSubmit={authMode === 'register' ? handleBootstrapRegister : handleLogin}>
+            <div className="brand-lockup">
+              <img className="brand-logo" src="/Pragyanovation_Logo.jpg" alt="Pragyanovation" />
+              <div className="brand-text">
+                <h1>{authMode === 'register' ? 'Admin Registration' : 'Admin Login'}</h1>
+              </div>
+            </div>
+            <p>{authMode === 'register' ? 'Register the first admin account for this system.' : 'Enter your credentials to manage forms.'}</p>
+            <label className="form-group">
+              <span>Email</span>
+              <input type="email" name="email" required aria-required="true" />
+            </label>
+            <label className="form-group">
+              <span>Password</span>
+              <input type="password" name="password" required aria-required="true" />
+            </label>
+            <button className="btn btn-primary" type="submit">{authMode === 'register' ? 'Register' : 'Login'}</button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => setAuthMode((m) => (m === 'login' ? 'register' : 'login'))}
+              style={{ marginTop: '0.75rem' }}
+            >
+              {authMode === 'login' ? 'First time? Register Admin' : 'Back to Login'}
+            </button>
+          </form>
+          <Footer />
+        </div>
       </div>
     )
   }
@@ -870,8 +921,13 @@ function AppContent() {
     <div className="dashboard">
       <aside className="sidebar" aria-label="Admin navigation">
         <div className="sidebar-header">
-          <h1>PDF Digitization</h1>
-          <p>Admin Console</p>
+          <div className="brand-lockup">
+            <img className="brand-logo" src="/Pragyanovation_Logo.jpg" alt="Pragyanovation" />
+            <div className="brand-text">
+              <h1>PDF Digitization</h1>
+              <p>Admin Console</p>
+            </div>
+          </div>
         </div>
         <nav>
           {NAV_ITEMS.map((item) => {
@@ -907,6 +963,7 @@ function AppContent() {
           {activeTab === 'builder' && renderBuilderTab()}
           {activeTab === 'submissions' && renderSubmissionsTab()}
         </div>
+        <Footer />
       </main>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Footer from './Footer'
 
 function AppAdmin() {
   const [token, setToken] = useState(localStorage.getItem('appAdminToken'))
@@ -147,22 +148,30 @@ function AppAdmin() {
   if (!token) {
     return (
       <div className="auth-shell">
-        <form className="auth-card" onSubmit={handleLogin}>
-          <h1>App Administrator</h1>
-          <p>Sign in to manage admin users.</p>
-          {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
-          <label className="form-group">
-            <span>Email</span>
-            <input type="email" name="email" required aria-required="true" />
-          </label>
-          <label className="form-group">
-            <span>Password</span>
-            <input type="password" name="password" required aria-required="true" />
-          </label>
-          <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Signing in…' : 'Login'}
-          </button>
-        </form>
+        <div>
+          <form className="auth-card" onSubmit={handleLogin}>
+            <div className="brand-lockup">
+              <img className="brand-logo" src="/Pragyanovation_Logo.jpg" alt="Pragyanovation" />
+              <div className="brand-text">
+                <h1>App Administrator</h1>
+              </div>
+            </div>
+            <p>Sign in to manage admin users.</p>
+            {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
+            <label className="form-group">
+              <span>Email</span>
+              <input type="email" name="email" required aria-required="true" />
+            </label>
+            <label className="form-group">
+              <span>Password</span>
+              <input type="password" name="password" required aria-required="true" />
+            </label>
+            <button className="btn btn-primary" type="submit" disabled={loading}>
+              {loading ? 'Signing in…' : 'Login'}
+            </button>
+          </form>
+          <Footer />
+        </div>
       </div>
     )
   }
@@ -171,8 +180,13 @@ function AppAdmin() {
     <div className="dashboard">
       <aside className="sidebar" aria-label="App administrator navigation">
         <div className="sidebar-header">
-          <h1>PDF Digitization</h1>
-          <p>App Administrator</p>
+          <div className="brand-lockup">
+            <img className="brand-logo" src="/Pragyanovation_Logo.jpg" alt="Pragyanovation" />
+            <div className="brand-text">
+              <h1>PDF Digitization</h1>
+              <p>App Administrator</p>
+            </div>
+          </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <button className="btn btn-neutral" onClick={loadAdmins} disabled={loading}>
@@ -249,6 +263,7 @@ function AppAdmin() {
             )}
           </section>
         </div>
+        <Footer />
       </main>
     </div>
   )

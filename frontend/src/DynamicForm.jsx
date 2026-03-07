@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Footer from './Footer'
 
 const DynamicForm = ({ schema, onSubmit }) => {
   const [filledData, setFilledData] = useState([]);
@@ -41,53 +42,62 @@ const DynamicForm = ({ schema, onSubmit }) => {
 
   return (
     <div className="public-form">
-      <div className="card">
-        <div className="card-header">
-          <h2>{schema?.name ? schema.name : 'Generated Form'}</h2>
-          {schema?.adminText ? <p>{schema.adminText}</p> : null}
-        </div>
-        <form onSubmit={handleSubmit} className="form-grid">
-          <label className="form-group">
-            <span>Email Address *</span>
-            <input
-              id="submitter-email"
-              type="email"
-              value={email}
-              onChange={(e) => handleEmailChange(e.target.value)}
-              required
-              placeholder="Enter your email address"
-            />
-          </label>
-        
-          {schema.sections.map((section, sectionIndex) => (
-            <div key={sectionIndex} className="section-card">
-              <h3 style={{ margin: 0 }}>{section.title}</h3>
-              {section.fields.map((field) => (
-              (() => {
-                const idx = fieldIndex;
-                fieldIndex += 1;
-                return (
-                  <label key={idx} className="form-group" htmlFor={`field-${idx}`}>
-                    <span>{field.label}{field.required ? ' *' : ''}</span>
-                    <input
-                      id={`field-${idx}`}
-                      type={field.type}
-                      value={filledData[idx]?.value || ''}
-                      onChange={(e) => handleChange(idx, e.target.value)}
-                      required={field.required}
-                      placeholder={`Enter ${field.label.toLowerCase()}`}
-                    />
-                  </label>
-                );
-              })()
-            ))}
+      <div>
+        <div className="card">
+          <div className="card-header">
+            <div className="brand-lockup" style={{ marginBottom: '0.75rem' }}>
+              <img className="brand-logo" src="/Pragyanovation_Logo.jpg" alt="Pragyanovation" />
+              <div className="brand-text">
+                <h1>{schema?.name ? schema.name : 'Generated Form'}</h1>
+                <p>Pragyanovation</p>
+              </div>
             </div>
-          ))}
-
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary">Submit Form</button>
+            {schema?.adminText ? <p>{schema.adminText}</p> : null}
           </div>
-        </form>
+          <form onSubmit={handleSubmit} className="form-grid">
+            <label className="form-group">
+              <span>Email Address *</span>
+              <input
+                id="submitter-email"
+                type="email"
+                value={email}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                required
+                placeholder="Enter your email address"
+              />
+            </label>
+          
+            {schema.sections.map((section, sectionIndex) => (
+              <div key={sectionIndex} className="section-card">
+                <h3 style={{ margin: 0 }}>{section.title}</h3>
+                {section.fields.map((field) => (
+                (() => {
+                  const idx = fieldIndex;
+                  fieldIndex += 1;
+                  return (
+                    <label key={idx} className="form-group" htmlFor={`field-${idx}`}>
+                      <span>{field.label}{field.required ? ' *' : ''}</span>
+                      <input
+                        id={`field-${idx}`}
+                        type={field.type}
+                        value={filledData[idx]?.value || ''}
+                        onChange={(e) => handleChange(idx, e.target.value)}
+                        required={field.required}
+                        placeholder={`Enter ${field.label.toLowerCase()}`}
+                      />
+                    </label>
+                  );
+                })()
+              ))}
+              </div>
+            ))}
+
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary">Submit Form</button>
+            </div>
+          </form>
+        </div>
+        <Footer />
       </div>
     </div>
   );

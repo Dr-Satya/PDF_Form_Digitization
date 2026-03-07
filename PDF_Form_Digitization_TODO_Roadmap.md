@@ -170,6 +170,9 @@ Derived from the Software Requirements Specification.
 -   [x] List submissions
 -   [x] View submission details
 -   [x] Download PDFs
+-   [x] Delete submissions
+-   [x] Bulk download selected submissions (ZIP)
+-   [x] Bulk delete selected submissions
 
 ### Acceptance Criteria
 
@@ -178,7 +181,7 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-# � PHASE 3.5 --- Enhanced Form Editor & PDF Generation
+# 🟦 PHASE 3.5 --- Enhanced Form Editor & PDF Generation
 
 ## ✅ 12.1. Admin Instructions System
 
@@ -248,6 +251,10 @@ Derived from the Software Requirements Specification.
 -   [x] Intuitive form editor layout
 -   [x] Responsive design elements
 -   [x] Clear visual feedback
+-   [x] Restored public share link route (frontend /public/{slug})
+-   [x] Public form styling improvements + visible submit button
+-   [x] Branding: Pragyanovation logo across pages
+-   [x] Branding: global footer copyright message
 
 ### Acceptance Criteria
 
@@ -257,9 +264,22 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-# �🔵 PHASE 4 --- OCR Support (Advanced)
+# 🟦 PHASE 3.6 --- App Administrator (Superuser)
 
-## ✅ 13. Convert PDF Pages to Images
+## ✅ 12.6. App Administrator role and admin management
+
+-   [x] Add app_admin role
+-   [x] App admin login endpoint
+-   [x] UI page: /app-admin
+-   [x] Create admin users
+-   [x] List admin users
+-   [x] Reset admin passwords
+
+------------------------------------------------------------------------
+
+# 🔵 PHASE 4 --- OCR Support (Advanced)
+
+## 13. Convert PDF Pages to Images
 
 -   [ ] Extract page images
 -   [ ] Preprocess for OCR
@@ -270,7 +290,7 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-## ✅ 14. Integrate Tesseract OCR
+## 14. Integrate Tesseract OCR
 
 -   [ ] Extract text blocks
 -   [ ] Preserve bounding boxes
@@ -282,7 +302,7 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-## ✅ 15. OCR-Based Field Detection
+## 15. OCR-Based Field Detection
 
 -   [ ] Generate schema from OCR output
 

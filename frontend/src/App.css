@@ -24,6 +24,14 @@ body {
   min-height: 100vh;
 }
 
+.app-footer {
+  margin-top: 2rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 button,
 input,
 select,
@@ -59,6 +67,38 @@ textarea {
 }
 
 .auth-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand-logo {
+  width: clamp(56px, 5vw, 76px);
+  height: clamp(56px, 5vw, 76px);
+  border-radius: 12px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.brand-text p {
   margin: 0;
   color: var(--muted);
 }
