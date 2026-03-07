@@ -4,6 +4,7 @@ import './App.css'
 import PDFViewer from './PDFViewer'
 import DynamicForm from './DynamicForm'
 import PublicForm from './PublicForm'
+import AppAdmin from './AppAdmin'
 
 const IconUpload = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -920,6 +921,7 @@ function App() {
         <Route path="/form/:shareToken" element={<DynamicForm />} />
         <Route path="/public/:slug" element={<PublicForm />} />
         <Route path="/public/form/:slug" element={<PublicForm />} />
+        <Route path="/app-admin" element={<AppAdmin />} />
       </Routes>
     </Router>
   )

@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TYPE user_role AS ENUM ('admin', 'public');
+CREATE TYPE user_role AS ENUM ('app_admin', 'admin', 'public');
 CREATE TYPE form_status AS ENUM ('draft', 'active', 'inactive');
 
 CREATE TABLE users (

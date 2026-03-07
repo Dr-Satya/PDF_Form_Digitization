@@ -57,11 +57,29 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def app_admin_required(f):
+    @wraps(f)
+    @jwt_required()
+    def decorated_function(*args, **kwargs):
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        if claims.get('role') != 'app_admin':
+            return jsonify({"error": "App administrator access required"}), 403
+        flask_g.user = {
+            'id': user_id,
+            'email': claims.get('email'),
+            'role': claims.get('role'),
+        }
+        return f(*args, **kwargs)
+    return decorated_function
+
 def get_db_connection():
     conn = psycopg2.connect(os.getenv('DATABASE_URL'))
     return conn
 
 @app.route('/api/admin/register', methods=['POST'])
+@app_admin_required
 def register_admin():
     data = request.get_json()
     email = data.get('email')
@@ -99,6 +117,8 @@ def login_admin():
     conn.close()
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
         return jsonify({"error": "Invalid credentials"}), 401
+    if user.get('role') != 'admin':
+        return jsonify({"error": "Admin access required"}), 403
     access_token = create_access_token(
         identity=str(user['id']),
         additional_claims={
@@ -107,6 +127,165 @@ def login_admin():
         },
     )
     return jsonify({"access_token": access_token}), 200
+
+
+@app.route('/api/app-admin/login', methods=['POST'])
+def login_app_admin():
+    data = request.get_json() or {}
+    email = data.get('email')
+    password = data.get('password')
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id, email, password_hash, role FROM users WHERE email = %s", (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+        return jsonify({"error": "Invalid credentials"}), 401
+    if user.get('role') != 'app_admin':
+        return jsonify({"error": "App administrator access required"}), 403
+    access_token = create_access_token(
+        identity=str(user['id']),
+        additional_claims={
+            'email': user['email'],
+            'role': user['role'],
+        },
+    )
+    return jsonify({"access_token": access_token}), 200
+
+
+@app.route('/api/app-admin/admins', methods=['GET'])
+@app_admin_required
+def list_admin_users():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id, email, role FROM users WHERE role = 'admin' ORDER BY email")
+    rows = cursor.fetchall() or []
+    cursor.close()
+    conn.close()
+    return jsonify({"admins": [{"id": str(r['id']), "email": r['email'], "role": r['role']} for r in rows]}), 200
+
+
+@app.route('/api/app-admin/admins', methods=['POST'])
+@app_admin_required
+def create_admin_user():
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip()
+    password = data.get('password')
+    if not email or not password:
+        return jsonify({"error": "Email and password required"}), 400
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (email, password_hash, role) VALUES (%s, %s, 'admin') RETURNING id",
+            (email, hashed.decode('utf-8')),
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        admin_id = row[0] if row else None
+        return jsonify({"message": "Admin created", "admin_id": str(admin_id) if admin_id else None}), 201
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        return jsonify({"error": "Email already exists"}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/app-admin/admins/<uuid:admin_id>', methods=['PUT'])
+@app_admin_required
+def update_admin_user(admin_id):
+    data = request.get_json() or {}
+    email = data.get('email')
+    new_password = data.get('password')
+
+    if email is None and new_password is None:
+        return jsonify({"error": "No changes provided"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT id, role FROM users WHERE id = %s", (str(admin_id),))
+        user = cursor.fetchone()
+        if not user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Admin not found"}), 404
+        if user.get('role') != 'admin':
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Target user is not an admin"}), 400
+
+        if email is not None:
+            email = (email or '').strip()
+            if not email:
+                cursor.close()
+                conn.close()
+                return jsonify({"error": "Invalid email"}), 400
+            cursor.execute("UPDATE users SET email = %s WHERE id = %s", (email, str(admin_id)))
+
+        if new_password is not None:
+            hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute(
+                "UPDATE users SET password_hash = %s WHERE id = %s",
+                (hashed.decode('utf-8'), str(admin_id)),
+            )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Admin updated"}), 200
+
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Email already exists"}), 400
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Update failed", "details": str(e)}), 500
+
+
+@app.route('/api/app-admin/admins/<uuid:admin_id>/reset-password', methods=['POST'])
+@app_admin_required
+def reset_admin_password(admin_id):
+    data = request.get_json() or {}
+    new_password = data.get('password')
+    if not new_password:
+        return jsonify({"error": "Password required"}), 400
+
+    hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT id, role FROM users WHERE id = %s", (str(admin_id),))
+        user = cursor.fetchone()
+        if not user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Admin not found"}), 404
+        if user.get('role') != 'admin':
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Target user is not an admin"}), 400
+
+        cursor.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (hashed.decode('utf-8'), str(admin_id)),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Password reset"}), 200
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Reset failed", "details": str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
