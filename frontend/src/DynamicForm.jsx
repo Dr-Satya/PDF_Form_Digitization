@@ -4,6 +4,7 @@ import Footer from './Footer'
 const DynamicForm = ({ schema, onSubmit }) => {
   const [filledData, setFilledData] = useState([]);
   const [email, setEmail] = useState('');
+  const [acceptLegal, setAcceptLegal] = useState(false)
 
   const handleChange = (index, value) => {
     const newData = [...filledData];
@@ -34,8 +35,13 @@ const DynamicForm = ({ schema, onSubmit }) => {
       alert('Please enter a valid email address');
       return;
     }
+
+    if (!acceptLegal) {
+      alert('Please accept the Privacy Policy and Terms of Use to continue')
+      return
+    }
     
-    onSubmit(filledData, email);
+    onSubmit(filledData, email, acceptLegal);
   };
 
   let fieldIndex = 0;
@@ -92,8 +98,17 @@ const DynamicForm = ({ schema, onSubmit }) => {
               </div>
             ))}
 
+            <label className="field-required" style={{ display: 'block' }}>
+              <input
+                type="checkbox"
+                checked={acceptLegal}
+                onChange={(e) => setAcceptLegal(e.target.checked)}
+              />
+              I agree to the <a href="/legal" target="_blank" rel="noreferrer">Privacy Policy and Terms of Use</a>
+            </label>
+
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">Submit Form</button>
+              <button type="submit" className="btn btn-primary" disabled={!acceptLegal}>Submit Form</button>
             </div>
           </form>
         </div>

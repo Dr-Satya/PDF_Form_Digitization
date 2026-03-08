@@ -6,6 +6,7 @@ import DynamicForm from './DynamicForm'
 import PublicForm from './PublicForm'
 import AppAdmin from './AppAdmin'
 import Footer from './Footer'
+import Legal from './Legal'
 
 const IconUpload = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -95,6 +96,7 @@ function AppContent() {
   const [newFormName, setNewFormName] = useState('')
   const [activeTab, setActiveTab] = useState('upload')
   const [authMode, setAuthMode] = useState('login')
+  const [acceptLegalForAdmin, setAcceptLegalForAdmin] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
 
   useEffect(() => {
@@ -223,10 +225,15 @@ function AppContent() {
     const email = e.target.email.value
     const password = e.target.password.value
 
+    if (!acceptLegalForAdmin) {
+      alert('Please accept the Privacy Policy and Terms of Use to continue')
+      return
+    }
+
     const response = await fetch('http://localhost:8000/api/admin/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, accept_legal: true, policy_version: '2026-03-08' })
     })
 
     if (response.ok) {
@@ -239,6 +246,7 @@ function AppContent() {
       setToken(accessToken)
       setActiveTab('upload')
       setAuthMode('login')
+      setAcceptLegalForAdmin(false)
     } else {
       let message = 'Registration failed'
       try {
@@ -901,11 +909,26 @@ function AppContent() {
               <span>Password</span>
               <input type="password" name="password" required aria-required="true" />
             </label>
+
+            {authMode === 'register' ? (
+              <label className="field-required" style={{ display: 'block', marginTop: '0.75rem' }}>
+                <input
+                  type="checkbox"
+                  checked={acceptLegalForAdmin}
+                  onChange={(e) => setAcceptLegalForAdmin(e.target.checked)}
+                />
+                I agree to the <a href="/legal" target="_blank" rel="noreferrer">Privacy Policy and Terms of Use</a>
+              </label>
+            ) : null}
+
             <button className="btn btn-primary" type="submit">{authMode === 'register' ? 'Register' : 'Login'}</button>
             <button
               className="btn btn-secondary"
               type="button"
-              onClick={() => setAuthMode((m) => (m === 'login' ? 'register' : 'login'))}
+              onClick={() => {
+                setAuthMode((m) => (m === 'login' ? 'register' : 'login'))
+                setAcceptLegalForAdmin(false)
+              }}
               style={{ marginTop: '0.75rem' }}
             >
               {authMode === 'login' ? 'First time? Register Admin' : 'Back to Login'}
@@ -979,6 +1002,7 @@ function App() {
         <Route path="/public/:slug" element={<PublicForm />} />
         <Route path="/public/form/:slug" element={<PublicForm />} />
         <Route path="/app-admin" element={<AppAdmin />} />
+        <Route path="/legal" element={<Legal />} />
       </Routes>
     </Router>
   )

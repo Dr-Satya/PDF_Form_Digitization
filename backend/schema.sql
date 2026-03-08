@@ -28,3 +28,18 @@ CREATE TABLE submissions (
     submitter_email VARCHAR(255),
     submitted_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE legal_acceptances (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    actor_type VARCHAR(32) NOT NULL,
+    user_id UUID REFERENCES users(id),
+    form_id UUID REFERENCES forms(id),
+    submission_id UUID,
+    email VARCHAR(255),
+    policy_version TEXT NOT NULL,
+    accepted_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_legal_acceptances_user_id ON legal_acceptances (user_id);
+CREATE INDEX idx_legal_acceptances_submission_id ON legal_acceptances (submission_id);
+CREATE INDEX idx_legal_acceptances_email ON legal_acceptances (email);

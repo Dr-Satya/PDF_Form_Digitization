@@ -83,6 +83,7 @@ Restrictions:
 -   JWT-based authentication
 -   Password hashing (bcrypt)
 -   Role-based access control middleware
+-   Legal acceptance required for Admin registration (Privacy Policy + Terms of Use)
 
 Acceptance Criteria: - Admin login returns valid JWT - Unauthorized
 access blocked (401/403)
@@ -128,6 +129,8 @@ Accept submission
 -   Store generated PDF path with submission
 -   Require submitter email (mandatory field)
 -   Prevent duplicate submissions per form by email
+-   Legal acceptance required for Public submission (Privacy Policy + Terms of Use)
+-   System must preserve acceptance records per Admin user and per Public submission
 
 ------------------------------------------------------------------------
 
@@ -139,6 +142,40 @@ Bulk operations:
 
 -   Download multiple submissions as a single ZIP
 -   Delete multiple submissions in one operation
+
+------------------------------------------------------------------------
+
+## 3.6 Legal Acceptance (Privacy Policy + Terms of Use)
+
+The system must require users to accept the Privacy Policy and Terms of Use before:
+
+-   Creating an Admin account
+-   Submitting a Public form
+
+Backend enforcement:
+
+-   Admin registration requests must include:
+    -   `accept_legal = true`
+    -   `policy_version` (string)
+-   Public form submission requests must include:
+    -   `accept_legal = true`
+    -   `policy_version` (string)
+
+Acceptance record storage:
+
+-   The system must store acceptance records in the database, including:
+    -   Actor type (`admin` / `public`)
+    -   User ID (for Admin registrations)
+    -   Form ID + submission ID (for Public submissions)
+    -   Email (for Public submissions)
+    -   Policy version
+    -   Timestamp
+
+Acceptance Criteria:
+
+-   Admin registration is rejected if legal acceptance is not provided.
+-   Public submission is rejected if legal acceptance is not provided.
+-   Acceptance records are persisted in the database.
 
 ------------------------------------------------------------------------
 
@@ -171,6 +208,17 @@ Bulk operations:
 -   submitter_email (VARCHAR)
 -   submitted_at (TIMESTAMP)
 
+## Legal Acceptances
+
+-   id (UUID)
+-   actor_type (VARCHAR: admin, public)
+-   user_id (UUID FK Users.id) (nullable)
+-   form_id (UUID FK Forms.id) (nullable)
+-   submission_id (UUID) (nullable)
+-   email (VARCHAR) (nullable)
+-   policy_version (TEXT)
+-   accepted_at (TIMESTAMP)
+
 ------------------------------------------------------------------------
 
 # 5. API Endpoints
@@ -186,7 +234,7 @@ Bulk operations:
 ## Admin Endpoints (Protected)
 
 -   POST /api/admin/login
--   POST /api/admin/register (App Administrator only)
+-   POST /api/admin/register (Admin self-registration)
 
 -   GET /api/forms
 -   POST /api/forms (create blank form)
@@ -227,6 +275,11 @@ Bulk operations:
 
 -   Modern admin dashboard layout with sidebar navigation
 -   Public forms render with professional card layout
+-   Legal page route:
+    -   `/legal` (Privacy Policy + Terms of Use summary with link to full documentation)
+-   Legal acceptance UI:
+    -   Admin registration requires checkbox acceptance (links to `/legal`)
+    -   Public submission requires checkbox acceptance (links to `/legal`)
 -   Branding:
     -   Pragyanovation logo on admin, app-admin, and public pages
     -   Global footer: "© 2026 Pragaynovation AI Tech LLP. All rights reserved."

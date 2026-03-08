@@ -277,7 +277,25 @@ Derived from the Software Requirements Specification.
 
 ------------------------------------------------------------------------
 
-# 🔵 PHASE 4 --- OCR Support (Advanced)
+# � PHASE 3.7 --- Legal Acceptance (Privacy Policy + Terms of Use)
+
+## ✅ 12.7. Legal acceptance enforcement + acceptance record storage
+
+-   [x] Add legal documentation (Privacy Policy + Terms of Use) in repository docs
+-   [x] Add UI route `/legal` (summary + link to full documentation)
+-   [x] Require acceptance checkbox on Admin registration (blocks registration)
+-   [x] Require acceptance checkbox on Public form submission (blocks submission)
+-   [x] Backend enforcement on admin register + public submit (`accept_legal`, `policy_version`)
+-   [x] Store acceptance records in database (`legal_acceptances` table)
+
+### Acceptance Criteria
+
+-   Registration/submission fails if `accept_legal` not provided
+-   Acceptance record is preserved per Admin user and per Public submission
+
+------------------------------------------------------------------------
+
+# �🔵 PHASE 4 --- OCR Support (Advanced)
 
 ## 13. Convert PDF Pages to Images
 

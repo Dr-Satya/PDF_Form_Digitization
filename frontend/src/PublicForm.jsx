@@ -27,11 +27,16 @@ const PublicForm = () => {
       });
   }, [slug]);
 
-  const handleSubmit = (filledData, email) => {
+  const handleSubmit = (filledData, email, acceptLegal) => {
     fetch(`http://localhost:8000/api/forms/${formId}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filled_data: filledData, email: email })
+      body: JSON.stringify({
+        filled_data: filledData,
+        email: email,
+        accept_legal: Boolean(acceptLegal),
+        policy_version: '2026-03-08'
+      })
     })
       .then(res => res.json())
       .then(data => {

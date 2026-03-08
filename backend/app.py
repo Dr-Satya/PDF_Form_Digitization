@@ -79,6 +79,27 @@ def get_db_connection():
     return conn
 
 
+def ensure_legal_acceptances_table(cursor):
+    cursor.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS legal_acceptances (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            actor_type VARCHAR(32) NOT NULL,
+            user_id UUID REFERENCES users(id),
+            form_id UUID REFERENCES forms(id),
+            submission_id UUID,
+            email VARCHAR(255),
+            policy_version TEXT NOT NULL,
+            accepted_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+    )
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user_id ON legal_acceptances (user_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_legal_acceptances_submission_id ON legal_acceptances (submission_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_legal_acceptances_email ON legal_acceptances (email)')
+
+
 @app.route('/api/admin/bootstrap-register', methods=['POST'])
 def bootstrap_register_admin():
     data = request.get_json() or {}
@@ -123,8 +144,12 @@ def register_admin():
     data = request.get_json() or {}
     email = (data.get('email') or '').strip()
     password = data.get('password')
+    accept_legal = bool(data.get('accept_legal'))
+    policy_version = (data.get('policy_version') or '').strip()
     if not email or not password:
         return jsonify({"error": "Email and password required"}), 400
+    if not accept_legal or not policy_version:
+        return jsonify({"error": "Privacy Policy and Terms of Use acceptance is required"}), 400
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -134,6 +159,16 @@ def register_admin():
             (email, hashed.decode('utf-8')),
         )
         user = cursor.fetchone()
+
+        ensure_legal_acceptances_table(cursor)
+        cursor.execute(
+            """
+            INSERT INTO legal_acceptances (actor_type, user_id, email, policy_version)
+            VALUES ('admin', %s, %s, %s)
+            """,
+            (str(user['id']), user['email'], policy_version),
+        )
+
         conn.commit()
 
         access_token = create_access_token(
@@ -907,10 +942,15 @@ def submit_form(form_id):
     data = request.get_json() or {}
     filled_data = data.get('filled_data', [])
     submitter_email = data.get('email', '').strip().lower()
+    accept_legal = bool(data.get('accept_legal'))
+    policy_version = (data.get('policy_version') or '').strip()
     
     # Validate email
     if not submitter_email or '@' not in submitter_email:
         return jsonify({"error": "Valid email address is required"}), 400
+
+    if not accept_legal or not policy_version:
+        return jsonify({"error": "Privacy Policy and Terms of Use acceptance is required"}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -958,9 +998,26 @@ def submit_form(form_id):
         
         # Store submission with email and PDF path
         cursor.execute(
-            "INSERT INTO submissions (form_id, filled_data, generated_pdf_path, submitter_email, submitted_at) VALUES (%s, %s, %s, %s, %s)",
+            """
+            INSERT INTO submissions (form_id, filled_data, generated_pdf_path, submitter_email, submitted_at)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
             (str(form_id), json.dumps(filled_data), pdf_path, submitter_email, submitted_at),
         )
+
+        submission_row = cursor.fetchone() or {}
+        submission_id = submission_row.get('id') if isinstance(submission_row, dict) else None
+
+        ensure_legal_acceptances_table(cursor)
+        cursor.execute(
+            """
+            INSERT INTO legal_acceptances (actor_type, form_id, submission_id, email, policy_version)
+            VALUES ('public', %s, %s, %s, %s)
+            """,
+            (str(form_id), str(submission_id) if submission_id else None, submitter_email, policy_version),
+        )
+
         conn.commit()
         cursor.close()
         conn.close()
