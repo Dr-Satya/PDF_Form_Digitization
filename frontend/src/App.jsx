@@ -55,7 +55,15 @@ const IconX = () => (
 )
 
 const IconTrash = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M3 6h18" />
     <path d="M8 6V4h8v2" />
     <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
@@ -725,8 +733,9 @@ function AppContent() {
               <article key={sectionIndex} className="section-card">
                 <header>
                   <input value={section.title || ''} onChange={(e) => handleSchemaSectionChange(sectionIndex, { title: e.target.value })} />
-                  <button className="icon-btn" onClick={() => handleDeleteSection(sectionIndex)} aria-label="Delete section">
+                  <button className="icon-btn icon-btn--text" onClick={() => handleDeleteSection(sectionIndex)} aria-label="Delete section">
                     <IconTrash />
+                    <span>Delete</span>
                   </button>
                 </header>
                 {section.fields?.map((field, fieldIndex) => (
@@ -755,8 +764,19 @@ function AppContent() {
                       />
                       Required
                     </label>
-                    <button className="icon-btn" onClick={() => handleDeleteField(sectionIndex, fieldIndex)} aria-label="Delete field">
+                    <button
+                      className="icon-btn icon-btn--text"
+                      title="Delete field"
+                      onClick={() => {
+                        const label = field?.label ? `\"${field.label}\"` : 'this field'
+                        if (window.confirm(`Delete ${label}?`)) {
+                          handleDeleteField(sectionIndex, fieldIndex)
+                        }
+                      }}
+                      aria-label="Delete field"
+                    >
                       <IconTrash />
+                      <span>Delete</span>
                     </button>
                   </div>
                 ))}
